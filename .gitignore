@@ -62,7 +62,9 @@ backend/uploads/
 *.pid
 *.seed
 
-study.md
-面经.md
-面试题.md
-learn.md
+note/study.md
+note/面经.md
+note/面试题.md
+note/learn.md
+
+note/
