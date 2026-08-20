@@ -4,8 +4,8 @@ server:
   auto_migrate: true
 
 database:
-  host: 127.0.0.1
-  port: 3307
+  host: 192.168.100.101
+  port: 3306
   username: root
   password: 123456
   dbname: feed
@@ -14,16 +14,16 @@ database:
   max_open_conns: 100
 
 redis:
-  host: 127.0.0.1
+  host: 192.168.100.101
   port: 6379
   password: "123456"
   db: 1
   pool_size: 100
 
 rabbitmq:
-  host: 127.0.0.1
+  host: 192.168.100.101
   port: 5672
-  username: admin
+  username: zlq
   password: "123456"
   vhost: "/"
   queue: feed_queue
