@@ -1,0 +1,106 @@
+server:
+  port: 8080
+  mode: debug  # debug / release
+  auto_migrate: true
+
+database:
+  host: 127.0.0.1
+  port: 3307
+  username: root
+  password: 123456
+  dbname: feed
+  charset: utf8mb4
+  max_idle_conns: 10
+  max_open_conns: 100
+
+redis:
+  host: 127.0.0.1
+  port: 6379
+  password: "123456"
+  db: 1
+  pool_size: 100
+
+rabbitmq:
+  host: 127.0.0.1
+  port: 5672
+  username: admin
+  password: "123456"
+  vhost: "/"
+  queue: feed_queue
+  dead_letter_queue: feed_queue.dlq
+  retry_queue: feed_queue.retry
+  prefetch: 50
+  consumers: 10
+  max_retries: 3
+  retry_delay_ms: 5000
+  idempotent_ttl_min: 60
+
+jwt:
+  secret: "feed-secret-key-2024"
+  expire: 72  # hours
+
+feed:
+  # 大V阈值：粉丝数超过此值的用户视为大V，采用拉模式
+  big_v_threshold: 1000
+  # 普通用户推送上限：粉丝数低于此值的用户采用推模式
+  push_fan_limit: 1000
+  # 收件箱缓存大小：每个用户收件箱最多缓存的feed数量
+  inbox_max_size: 1000
+  # 发件箱缓存大小：大V发件箱最多缓存的feed数量
+  outbox_max_size: 500
+  # 时间线拉取默认分页大小
+  page_size: 20
+
+cors:
+  allow_origins:
+    - http://localhost:3000
+    - http://127.0.0.1:3000
+    - http://localhost:5173
+    - http://127.0.0.1:5173
+
+ws:
+  send_message:
+    rate: 0.8
+    burst: 40
+
+outbox:
+  batch_size: 50
+  poll_interval_ms: 2000
+  max_retries: 10
+  max_backoff_ms: 300000
+
+upload:
+  # 上传文件存储路径
+  path: ./uploads
+  # 允许的图片类型
+  image_exts: [".jpg", ".jpeg", ".png", ".gif", ".webp"]
+  # 允许的视频类型
+  video_exts: [".mp4", ".mov", ".avi", ".webm"]
+  # 图片最大大小 (MB)
+  image_max_size: 10
+  # 视频最大大小 (MB)
+  video_max_size: 100
+
+rate_limit:
+  # 令牌桶：rate=每秒补充令牌数，burst=桶容量（瞬时突发上限）
+  login_ip:
+    rate: 0.3
+    burst: 150
+  register_ip:
+    rate: 0.2
+    burst: 100
+  publish_feed:
+    rate: 0.2
+    burst: 100
+  repost_feed:
+    rate: 0.4
+    burst: 200
+  like_feed:
+    rate: 2
+    burst: 60
+  comment_feed:
+    rate: 0.6
+    burst: 300
+  send_message:
+    rate: 0.8
+    burst: 400

@@ -1,0 +1,80 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --page-bg: #f5f7fa;
+  --text-color: #333;
+  --layout-bg: #f7f8fa;
+  --card-bg: #fff;
+  --nav-hover-bg: #f3f5f8;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--page-bg);
+  color: var(--text-color);
+}
+
+body.dark {
+  --page-bg: #101318;
+  --text-color: #e8ecf3;
+  --layout-bg: #0e1116;
+  --card-bg: #1a2029;
+  --nav-hover-bg: #252d38;
+}
+
+/* 动态操作弹层：去掉外层白框，只保留内部黑色条 */
+.moments-action-pop.el-popper,
+.moments-action-pop.el-popover {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.moments-action-pop .el-popper__arrow,
+.moments-action-pop .el-popper__arrow::before {
+  display: none !important;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.page-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.mt-10 {
+  margin-top: 10px;
+}
+
+.mt-20 {
+  margin-top: 20px;
+}
+
+.mb-10 {
+  margin-bottom: 10px;
+}
+
+.mb-20 {
+  margin-bottom: 20px;
+}
