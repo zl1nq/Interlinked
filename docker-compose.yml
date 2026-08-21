@@ -9,7 +9,7 @@ services:
       MYSQL_DATABASE: "${MYSQL_DATABASE:-feed}"
       TZ: "Asia/Shanghai"
     ports:
-      - "3307:3306"
+      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     command:

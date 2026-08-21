@@ -4,6 +4,7 @@ import (
 	"feed/middleware"
 	"feed/services"
 	"feed/utils"
+	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -50,17 +51,19 @@ func (h *UserHandler) Register(c *gin.Context) {
 // POST /api/auth/login
 func (h *UserHandler) Login(c *gin.Context) {
 	var req services.LoginRequest
+	//从 JSON Body 解析登录参数
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.Error(c, 400, "参数错误: "+err.Error())
 		return
 	}
-
+	utils.LogInfo(fmt.Sprintf("用户 %s 尝试登录 (IP: %s)", req.Username, c.ClientIP()))
 	resp, err := h.userService.Login(&req)
 	if err != nil {
 		utils.Error(c, 400, err.Error())
 		return
 	}
 
+	utils.LogInfo(fmt.Sprintf("用户 %s 登录成功", req.Username))
 	utils.Success(c, resp)
 }
 

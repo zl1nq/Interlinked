@@ -1,6 +1,6 @@
 server:
   port: 8080
-  mode: debug  # debug / release
+  mode: release  # debug / release  debug → release，减少 GORM 日志输出
   auto_migrate: true
 
 database:

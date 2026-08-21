@@ -12,6 +12,8 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
+//实现了基于 Redis 令牌桶算法 的接口限流中间件，用于保护后端接口免受高频请求的冲击。
+
 // RateLimitByIP 按 IP 做令牌桶限流。
 // rate 表示每秒补充令牌数，burst 表示桶容量。
 func RateLimitByIP(prefix string, rate float64, burst int) gin.HandlerFunc {
@@ -24,7 +26,7 @@ func RateLimitByIP(prefix string, rate float64, burst int) gin.HandlerFunc {
 		if ip == "" {
 			ip = "unknown"
 		}
-		key := fmt.Sprintf("tb:%s:ip:%s", prefix, ip)
+		key := fmt.Sprintf("tb:%s:ip:%s", prefix, ip)                 //生成令牌桶键名
 		pass, retryAfter, err := allowByTokenBucket(key, rate, burst) //获取令牌
 		if err != nil {                                               //发送获取令牌失败事件
 			c.Next() //继续执行
@@ -42,6 +44,7 @@ func RateLimitByIP(prefix string, rate float64, burst int) gin.HandlerFunc {
 
 // RateLimitByUser 按 user_id 做令牌桶限流。
 // rate 表示每秒补充令牌数，burst 表示桶容量。
+// 针对特定资源（如视频）的访问限制
 func RateLimitByUser(prefix string, rate float64, burst int) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if rate <= 0 || burst <= 0 {
@@ -98,7 +101,7 @@ func RateLimitByFeedFromContext(prefix string, rate float64, burst int) gin.Hand
 	}
 }
 
-// AllowTokenBucket 按任意 key 执行令牌桶限流，返回是否通过与建议等待时间。
+// AllowTokenBucket 按任意 key 执行令牌桶限流，返回是否通过与建议等待时间。对外暴露的任意 Key 限流接口
 func AllowTokenBucket(key string, rate float64, burst int) (bool, int, error) {
 	return allowByTokenBucket(key, rate, burst)
 }
@@ -124,12 +127,25 @@ func allowByTokenBucket(key string, rate float64, burst int) (bool, int, error) 
 	return allowed, retryAfter, nil
 }
 
+/*
+核心：allowByTokenBucket + Lua 脚本（第 107-154 行）
+使用 Redis Lua 脚本原子性地执行令牌桶算法，两个 Key 存储状态：
+
+tokensKey：当前剩余令牌数
+tsKey：上次执行时间戳
+算法流程：
+
+计算时间差 delta，按 delta * rate 补充令牌（不超过 burst）
+若 tokens < 1（桶空），计算需要等待的时间 retryAfter，返回 {0, retryAfter}
+若有令牌，扣减 1 个令牌，返回 {1, 0}
+每次写入都设置过期时间 expireSec = max(ceil(burst/rate)*2, 2)，避免僵尸 Key 堆积
+*/
 var tokenBucketScript = redis.NewScript(`
-local key = KEYS[1]
-local now = tonumber(ARGV[1])
-local rate = tonumber(ARGV[2])
-local burst = tonumber(ARGV[3])
-local expire = tonumber(ARGV[4])
+local key = KEYS[1]          -- Redis Key 前缀
+local now = tonumber(ARGV[1]) -- 当前时间戳（毫秒）
+local rate = tonumber(ARGV[2]) -- 令牌补充速率
+local burst = tonumber(ARGV[3]) -- 桶容量
+local expire = tonumber(ARGV[4]) -- Key 过期时间（秒）
 local tokensKey = key .. ':tokens'
 local tsKey = key .. ':ts'
 local tokens = tonumber(redis.call('GET', tokensKey))
@@ -153,6 +169,7 @@ redis.call('SET', tsKey, now, 'EX', expire)
 return {1, 0}
 `)
 
+// 兼容 Redis 返回的不同类型（int64/int/string）
 func parseLuaInt(v any) int {
 	switch val := v.(type) {
 	case int64:
