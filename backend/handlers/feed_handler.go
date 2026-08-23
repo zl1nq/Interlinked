@@ -4,6 +4,7 @@ import (
 	"feed/middleware"
 	"feed/services"
 	"feed/utils"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -25,7 +26,7 @@ func NewFeedHandler(feedService *services.FeedService) *FeedHandler {
 // POST /api/feeds
 func (h *FeedHandler) PublishFeed(c *gin.Context) {
 	currentUserID := middleware.GetCurrentUserID(c)
-
+	utils.LogInfo(fmt.Sprintf("currentUserID: %d is publishing feed", currentUserID))
 	var req services.CreateFeedRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.Error(c, 400, "参数错误: "+err.Error())

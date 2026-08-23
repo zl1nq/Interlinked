@@ -69,19 +69,25 @@ func (s *FeedService) PublishFeed(userID uint, req *CreateFeedRequest) (*models.
 		return nil, errors.New("请输入文案、上传图片或视频")
 	}
 	feed := &models.Feed{UserID: userID, Content: req.Content, Images: req.Images, Videos: req.Videos, FeedType: models.FeedTypeOriginal}
+	// 开始事务
 	tx := s.feedRepo.BeginTx()
+	// 创建动态
 	if err := s.feedRepo.CreateInTx(tx, feed); err != nil {
 		tx.Rollback()
 		return nil, errors.New("发布失败")
 	}
+	// 创建发布事件
 	if err := s.createFeedPublishedOutbox(tx, feed.ID, userID); err != nil {
 		tx.Rollback()
 		return nil, errors.New("发布失败")
 	}
+	// 提交事务
 	if err := tx.Commit().Error; err != nil {
 		return nil, errors.New("发布失败")
 	}
-	cache.AddFeedID(feed.ID) //添加动态ID到布隆过滤器
+
+	//添加动态ID到布隆过滤器
+	cache.AddFeedID(feed.ID)
 	return feed, nil
 }
 
@@ -93,6 +99,7 @@ func (s *FeedService) createFeedDeletedOutbox(tx *gorm.DB, feedID, userID uint) 
 	return s.createOutboxEvent(tx, models.OutboxEventTypeFeedDeleted, feedID, map[string]any{"feed_id": feedID, "author_id": userID})
 }
 
+// createOutboxEvent 通用的 Outbox 事件创建辅助方法，用于在事务中写入一条事件消息，是实现**发件箱模式（Outbox Pattern）**的核心组件
 func (s *FeedService) createOutboxEvent(tx *gorm.DB, eventType string, aggregateID uint, payloadData map[string]any) error {
 	payload, err := json.Marshal(payloadData)
 	if err != nil {
@@ -107,7 +114,7 @@ func (s *FeedService) createOutboxEvent(tx *gorm.DB, eventType string, aggregate
 	})
 }
 
-// 更新动态
+// UpdateFeed 更新动态
 func (s *FeedService) UpdateFeed(feedID, userID uint, req *UpdateFeedRequest) (*models.Feed, error) {
 	//获取动态
 	feed, err := s.feedRepo.GetByIDAndUserID(feedID, userID)

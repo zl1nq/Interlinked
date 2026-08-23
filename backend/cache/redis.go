@@ -3,8 +3,8 @@ package cache
 import (
 	"context"
 	"feed/config"
+	"feed/utils"
 	"fmt"
-	"log"
 	"math/rand"
 	"sync/atomic"
 	"time"
@@ -56,7 +56,7 @@ func InitRedis() error {
 	}
 
 	RedisClient = client
-	log.Println("Redis initialized successfully")
+	utils.LogInfo("Redis initialized successfully")
 	return nil
 }
 

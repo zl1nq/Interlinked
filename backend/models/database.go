@@ -2,8 +2,8 @@ package models
 
 import (
 	"feed/config"
+	"feed/utils"
 	"fmt"
-	"log"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -42,6 +42,7 @@ func InitDB() error {
 
 	if config.AppConfig.Server.AutoMigrate {
 		// 自动迁移仅建议在开发环境开启，生产环境应使用 migration 工具管理表结构。
+		// 自动建表并同步模型结构到数据库
 		err = DB.AutoMigrate(
 			&User{},
 			&Follow{},
@@ -59,6 +60,6 @@ func InitDB() error {
 		}
 	}
 
-	log.Println("Database initialized successfully")
+	utils.LogInfo("Database initialized successfully")
 	return nil
 }

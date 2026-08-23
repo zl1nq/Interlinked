@@ -70,6 +70,7 @@ func InitMQ() error {
 func initPublisher() error {
 	cfg := config.AppConfig.RabbitMQ
 
+	//用于建立到 RabbitMQ 的 AMQP 连接
 	conn, err := amqp.Dial(cfg.URL())
 	if err != nil {
 		return err
@@ -81,7 +82,8 @@ func initPublisher() error {
 		return err
 	}
 
-	q, err := declareTopology(ch) //声明队列拓扑
+	//声明队列拓扑
+	q, err := declareTopology(ch)
 	if err != nil {
 		_ = ch.Close()
 		_ = conn.Close()
@@ -95,6 +97,7 @@ func initPublisher() error {
 }
 
 // declareTopology 声明 MQ 拓扑：主队列、重试队列、死信队列。
+// 负责在同一个 AMQP 通道上按顺序声明三条队列，构建出一条完整的「主队列 → 重试队列 → 死信队列」的消息处理链路。
 // 说明：
 // - 主队列消费失败后可进入重试或死信流程；
 // - 重试队列通过 TTL 到期后回流主队列；

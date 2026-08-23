@@ -11,6 +11,7 @@ import (
 	"feed/mq"
 	"feed/router"
 	"feed/services"
+	"feed/utils"
 	"fmt"
 	"log"
 	"net/http"
@@ -21,35 +22,38 @@ import (
 )
 
 func main() {
+	//	0. 初始化颜色打印样式
+	utils.InitColorPrint()
+
 	// 1. 初始化配置
 	if err := config.InitConfig(); err != nil {
 		log.Fatalf("Init config failed: %v", err)
 	}
-	log.Println("✅ Config loaded successfully")
+	utils.LogInfo("✅ Config loaded successfully")
 
 	// 2. 初始化数据库
 	if err := models.InitDB(); err != nil {
 		log.Fatalf("Init database failed: %v", err)
 	}
-	log.Println("✅ Database initialized successfully")
+	utils.LogInfo("✅ Database initialized successfully")
 
 	// 3. 初始化Redis
 	if err := cache.InitRedis(); err != nil {
-		log.Fatalf("Init redis failed: %v", err)
+		utils.LogError(fmt.Sprintf("Init redis failed: %v", err))
 	}
-	log.Println("✅ Redis initialized successfully")
+	utils.LogInfo("✅ Redis initialized successfully")
 
 	// 4. 初始化消息队列
 	if err := mq.InitMQ(); err != nil {
-		log.Fatalf("Init rabbitmq failed: %v", err)
+		utils.LogError(fmt.Sprintf("Init rabbitmq failed: %v", err))
 	}
-	log.Println("✅ Message queue initialized successfully")
+	utils.LogInfo("✅ Message queue initialized successfully")
 
 	// 5. 初始化布隆过滤器（防缓存穿透）
 	if err := cache.InitBloomFilters(); err != nil {
 		log.Printf("⚠️ Init bloom filters failed, fallback without bloom: %v", err)
 	} else {
-		log.Println("✅ Bloom filters initialized successfully")
+		utils.LogInfo("✅ Bloom filters initialized successfully")
 	}
 
 	// 6. 启动可靠事件投递 worker
@@ -88,7 +92,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("Server forced to shutdown: %v", err)
+		utils.LogError(fmt.Sprintf("Server forced to shutdown: %v", err))
 	}
-	log.Println("Server exited")
+	utils.LogInfo("Server exited")
 }

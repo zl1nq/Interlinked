@@ -16,7 +16,7 @@ type User struct {
 	Avatar        string         `gorm:"type:varchar(500);default:''" json:"avatar"`
 	Bio           string         `gorm:"type:varchar(500);default:''" json:"bio"`
 	FollowerCount int64          `gorm:"default:0" json:"follower_count"` // 粉丝数
-	FollowCount   int64          `gorm:"default:0" json:"follow_count"`   // 关注数
+	FollowCount   int64          `gorm:"default:0" json:"follow_count"`   // 关注数a
 	IsBigV        bool           `gorm:"default:false" json:"is_big_v"`   // 是否为大V（粉丝数超过阈值）
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`

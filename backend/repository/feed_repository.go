@@ -65,6 +65,7 @@ func (r *feedMySQLRepository) Create(feed *models.Feed) error {
 	return r.db.Create(feed).Error
 }
 
+// CreateInTx 插入一条 Feed 记录到事务中；事务版本（使用外部传入的 tx 连接）
 func (r *feedMySQLRepository) CreateInTx(tx *gorm.DB, feed *models.Feed) error {
 	return tx.Create(feed).Error
 }
