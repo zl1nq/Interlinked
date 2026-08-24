@@ -54,6 +54,7 @@ func InitDB() error {
 			&Conversation{},
 			&Notification{},
 			&OutboxEvent{},
+			&Timeline{},
 		)
 		if err != nil {
 			return fmt.Errorf("auto migrate failed: %w", err)
