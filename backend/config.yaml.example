@@ -1,34 +1,34 @@
 server:
-  port: 8080
+  port: 8080     # 服务端口
   mode: release  # debug / release  debug → release，减少 GORM 日志输出
   auto_migrate: true
 
 database:
-  host: 192.168.100.101
+  host: host
   port: 3306
-  username: root
-  password: 123456
+  username: username
+  password: password
   dbname: feed
   charset: utf8mb4
   max_idle_conns: 10
   max_open_conns: 100
 
 redis:
-  host: 192.168.100.101
+  host: host
   port: 6379
-  password: "123456"
+  password: password
   db: 1
   pool_size: 100
 
 rabbitmq:
-  host: 192.168.100.101
+  host: host
   port: 5672
-  username: zlq
-  password: "123456"
-  vhost: "/"
-  queue: feed_queue
-  dead_letter_queue: feed_queue.dlq
-  retry_queue: feed_queue.retry
+  username: username
+  password: password
+  vhost: "/"                        # 虚拟主机
+  queue: feed_queue                 # 队列名称
+  dead_letter_queue: feed_queue.dlq # 死信队列名称
+  retry_queue: feed_queue.retry     # 重试队列名称
   prefetch: 50
   consumers: 10
   max_retries: 3
@@ -77,9 +77,9 @@ upload:
   # 允许的视频类型
   video_exts: [".mp4", ".mov", ".avi", ".webm"]
   # 图片最大大小 (MB)
-  image_max_size: 10
+  image_max_size: 9
   # 视频最大大小 (MB)
-  video_max_size: 100
+  video_max_size: 60
 
 rate_limit:
   # 令牌桶：rate=每秒补充令牌数，burst=桶容量（瞬时突发上限）

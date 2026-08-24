@@ -46,6 +46,11 @@ backend/*.test
 backend/*.out
 backend/coverage.out
 
+# =========================
+# Config
+# =========================
+backend/config.yaml
+
 # Uploaded media (runtime data)
 backend/uploads/
 
@@ -67,7 +72,6 @@ note/面经.md
 note/面试题.md
 note/learn.md
 note/*
-note/
 pic
 digest
 build
