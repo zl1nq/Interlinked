@@ -119,10 +119,10 @@ function coverStyle(user) {
   const seed = Number(user.id || 1)
   const h = 140 + (seed % 4) * 28
   const palette = [
-    'linear-gradient(135deg,#ffe4ec,#ffd9d9)',
-    'linear-gradient(135deg,#e4f3ff,#d7e6ff)',
-    'linear-gradient(135deg,#e9ffe8,#d8f8d7)',
-    'linear-gradient(135deg,#fff3dd,#ffe5c2)',
+    'linear-gradient(135deg,#f3dde2,#e6cbd4)',
+    'linear-gradient(135deg,#dfe5ef,#ccd7e7)',
+    'linear-gradient(135deg,#dee8e0,#c8d9cf)',
+    'linear-gradient(135deg,#e9e3da,#d9d0c2)',
   ]
   return {
     height: `${h}px`,
@@ -137,41 +137,42 @@ function coverStyle(user) {
 }
 
 .discover-head {
-  border-radius: 14px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .head-title {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 800;
+  letter-spacing: -0.02em;
   margin-bottom: 6px;
 }
 
 .head-sub {
   font-size: 13px;
-  color: #8a93a5;
-  margin-bottom: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 14px;
 }
 
 .waterfall {
   column-count: 2;
-  column-gap: 14px;
+  column-gap: 16px;
 }
 
 .note-card {
   break-inside: avoid;
-  background: #fff;
-  border-radius: 14px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
   overflow: hidden;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
   cursor: pointer;
-  box-shadow: 0 2px 10px rgba(25, 35, 56, 0.08);
-  transition: transform .2s ease, box-shadow .2s ease;
+  box-shadow: var(--shadow-1);
+  transition: transform var(--dur-med) var(--ease), box-shadow var(--dur-med) var(--ease);
 }
 
 .note-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(25, 35, 56, 0.14);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-3);
 }
 
 .note-cover {
@@ -181,16 +182,20 @@ function coverStyle(user) {
 }
 
 .note-avatar {
-  border: 3px solid rgba(255, 255, 255, 0.75);
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  box-shadow: var(--shadow-1);
+  font-weight: 700;
 }
 
 .note-body {
-  padding: 10px 12px 12px;
+  padding: 12px 14px 14px;
 }
 
 .note-title {
   font-size: 15px;
   font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -199,24 +204,20 @@ function coverStyle(user) {
 .note-desc {
   margin-top: 4px;
   font-size: 12px;
-  color: #8b94a7;
+  color: var(--text-tertiary);
 }
 
 .note-meta {
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 12px;
-  color: #6f788a;
+  color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.empty-wrap {
-  border-radius: 14px;
-}
-
 .pager-wrap {
-  margin-top: 10px;
+  margin-top: 12px;
   display: flex;
   justify-content: center;
 }

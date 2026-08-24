@@ -144,29 +144,25 @@ function goToFeedDetail(feedId) {
 </script>
 
 <style scoped>
+/* 信息流：容器透明，FeedCard 各自以浮起卡片呈现 */
 .timeline-page {
-  background: #f0f2f5;
-  border-radius: 12px;
-  padding: 14px 16px;
-}
-
-
-.moments-list {
-  margin-top: 10px;
-  background: #fff;
-  border-radius: 8px;
-  padding: 0 12px;
+  max-width: 640px;
+  margin: 0 auto;
 }
 
 .loading-wrap,
 .empty-wrap {
-  padding: 16px 0;
+  padding: 24px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
 }
 
 .load-more {
   text-align: center;
-  color: #a3a9b4;
-  font-size: 12px;
-  padding: 14px 0;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  padding: 8px 0 20px;
 }
 </style>

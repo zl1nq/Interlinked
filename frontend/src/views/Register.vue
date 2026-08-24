@@ -1,7 +1,7 @@
 <template>
   <div class="login-container">
     <div class="login-card">
-      <h1 class="login-title">📱 Feed流系统</h1>
+      <h1 class="login-title">Feed<span class="accent">Link</span></h1>
       <p class="login-subtitle">创建你的账号</p>
 
       <el-form ref="formRef" :model="form" :rules="rules" label-width="0" size="large">
@@ -18,7 +18,7 @@
           <el-input v-model="form.confirmPassword" type="password" placeholder="确认密码" prefix-icon="Lock" show-password />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="loading" style="width: 100%" @click="handleRegister">
+          <el-button type="primary" class="submit-btn" :loading="loading" style="width: 100%" @click="handleRegister">
             注 册
           </el-button>
         </el-form-item>
@@ -92,47 +92,65 @@ async function handleRegister() {
 
 <style scoped>
 .login-container {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--surface-base);
+  padding: 24px;
 }
 
 .login-card {
   width: 400px;
-  padding: 40px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 100%;
+  padding: 44px 40px 36px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-3);
+  animation: page-enter 0.55s var(--ease) both;
 }
 
 .login-title {
   text-align: center;
-  font-size: 28px;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
   margin-bottom: 8px;
-  color: #333;
+  color: var(--text-primary);
+}
+
+.login-title .accent {
+  color: var(--accent);
 }
 
 .login-subtitle {
   text-align: center;
-  color: #999;
-  margin-bottom: 30px;
+  color: var(--text-tertiary);
+  margin-bottom: 32px;
   font-size: 14px;
+}
+
+.submit-btn {
+  border-radius: var(--r-pill);
+  font-weight: 600;
+  letter-spacing: 0.2em;
 }
 
 .login-footer {
   text-align: center;
-  color: #999;
+  color: var(--text-tertiary);
   font-size: 14px;
 }
 
 .link {
-  color: #667eea;
-  font-weight: 500;
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .link:hover {
+  color: var(--accent);
   text-decoration: underline;
+  text-underline-offset: 3px;
 }
 </style>

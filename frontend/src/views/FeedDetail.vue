@@ -5,7 +5,7 @@
       <h2>动态详情</h2>
     </section>
 
-    <section class="card detail-body" v-loading="loading">
+    <section class="detail-body" v-loading="loading">
       <el-empty v-if="!loading && !feed" description="动态不存在或已删除" />
 
       <FeedCard
@@ -86,11 +86,12 @@ function goToProfile(userId) {
 <style scoped>
 .feed-detail-page {
   min-width: 0;
+  max-width: 640px;
+  margin: 0 auto;
 }
 
 .detail-head {
-  border-radius: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -99,9 +100,7 @@ function goToProfile(userId) {
 .detail-head h2 {
   margin: 0;
   font-size: 18px;
-}
-
-.detail-body {
-  border-radius: 12px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 </style>

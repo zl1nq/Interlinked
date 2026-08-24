@@ -175,20 +175,23 @@ async function refreshNotificationUnread() {
 
 <style scoped>
 .layout-xhs {
-  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--layout-bg);
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 16px;
-  padding: 16px;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: 20px;
+  padding: 20px;
 }
 
+/* 悬浮岛式侧导航 */
 .side-nav {
   position: sticky;
-  top: 16px;
-  height: calc(100vh - 32px);
-  padding: 18px 12px;
-  border-radius: 14px;
+  top: 20px;
+  height: calc(100dvh - 40px);
+  padding: 20px 12px;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-2);
   display: flex;
   flex-direction: column;
 }
@@ -196,7 +199,8 @@ async function refreshNotificationUnread() {
 .brand {
   font-size: 24px;
   font-weight: 800;
-  padding: 8px 10px 16px;
+  letter-spacing: -0.03em;
+  padding: 8px 12px 20px;
   cursor: pointer;
 }
 
@@ -206,35 +210,43 @@ async function refreshNotificationUnread() {
   background: transparent;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  margin-bottom: 8px;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: var(--r-pill);
+  margin-bottom: 4px;
   cursor: pointer;
-  color: var(--text-color);
+  color: var(--text-secondary);
   font-size: 15px;
+  font-weight: 500;
   text-align: left;
   position: relative;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 
 .nav-item:hover {
   background: var(--nav-hover-bg);
+  color: var(--text-primary);
 }
 
 .nav-item.active {
-  background: #111;
-  color: #fff;
+  background: var(--ink);
+  color: var(--on-ink);
+}
+
+.nav-item.active:hover {
+  color: var(--on-ink);
 }
 
 .nav-badge {
   margin-left: auto;
-  min-width: 18px;
-  height: 18px;
-  line-height: 18px;
-  border-radius: 999px;
-  background: #ff2e4d;
+  min-width: 19px;
+  height: 19px;
+  line-height: 19px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
   color: #fff;
   font-size: 11px;
+  font-weight: 600;
   text-align: center;
   padding: 0 5px;
 }
@@ -264,28 +276,34 @@ async function refreshNotificationUnread() {
 }
 
 .top-bar {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   display: flex;
   justify-content: center;
 }
 
-/* 小红书风格：白底圆角胶囊搜索条 */
+/* 胶囊搜索条：白底悬浮，聚焦时描边加深 */
 .global-search {
   width: min(640px, 100%);
-  height: 46px;
-  background: #fff;
-  border: 1px solid #eceff3;
-  border-radius: 999px;
-  box-shadow: 0 4px 14px rgba(24, 32, 56, 0.06);
+  height: 48px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-1);
   display: grid;
   grid-template-columns: 22px 1fr auto;
   align-items: center;
   gap: 8px;
-  padding: 0 10px 0 14px;
+  padding: 0 8px 0 16px;
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.global-search:focus-within {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-2);
 }
 
 .search-icon {
-  color: #9aa3b5;
+  color: var(--text-tertiary);
   font-size: 16px;
 }
 
@@ -294,27 +312,33 @@ async function refreshNotificationUnread() {
   outline: none;
   height: 100%;
   font-size: 14px;
-  color: #222;
+  color: var(--text-primary);
   background: transparent;
 }
 
 .search-input::placeholder {
-  color: #9aa3b5;
+  color: var(--text-tertiary);
 }
 
 .search-action {
   border: 0;
-  height: 34px;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: #111;
-  color: #fff;
+  height: 36px;
+  padding: 0 18px;
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  color: var(--on-ink);
   cursor: pointer;
   font-size: 13px;
+  font-weight: 600;
+  transition: transform var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
 }
 
 .search-action:hover {
-  background: #222;
+  opacity: 0.88;
+}
+
+.search-action:active {
+  transform: scale(0.97);
 }
 
 .router-section {
@@ -334,7 +358,7 @@ async function refreshNotificationUnread() {
   justify-content: space-between;
   gap: 12px;
   min-height: 40px;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 0 12px;
 }
 

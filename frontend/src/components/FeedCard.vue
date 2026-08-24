@@ -316,12 +316,22 @@ function formatTime(timeStr) {
 </script>
 
 <style scoped>
+/* 动态卡片：独立浮起卡片，信息流中以留白分隔 */
 .moments-item {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 14px 0;
-  border-bottom: 1px solid #eef0f3;
+  gap: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+  transition: box-shadow var(--dur-med) var(--ease);
+}
+
+.moments-item:hover {
+  box-shadow: var(--shadow-2);
 }
 
 .avatar-wrap {
@@ -329,10 +339,10 @@ function formatTime(timeStr) {
 }
 
 .avatar {
-  border-radius: 6px;
-  background: linear-gradient(135deg, #6f94ff 0%, #4a70df 100%);
+  border-radius: 12px;
+  background: linear-gradient(135deg, #3a3a40 0%, #111113 100%);
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .moments-main {
@@ -348,9 +358,15 @@ function formatTime(timeStr) {
 }
 
 .nickname {
-  font-size: 16px;
-  font-weight: 600;
-  color: #576b95;
+  font-size: 15.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.name-row:hover .nickname {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .v-badge {
@@ -361,13 +377,13 @@ function formatTime(timeStr) {
   border-radius: 50%;
   font-size: 11px;
   color: #fff;
-  background: #f5a623;
+  background: #f0a020;
 }
 
 .moments-text {
   margin-top: 6px;
-  color: #1f2329;
-  line-height: 1.7;
+  color: var(--text-primary);
+  line-height: 1.75;
   font-size: 15px;
   white-space: pre-wrap;
   word-break: break-word;
@@ -377,62 +393,61 @@ function formatTime(timeStr) {
   cursor: pointer;
 }
 
-.clickable-feed:hover {
-  opacity: 0.9;
-}
-
 .moments-grid,
 .repost-grid {
-  margin-top: 8px;
+  margin-top: 10px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-  width: min(260px, 100%);
+  gap: 6px;
+  width: min(300px, 100%);
 }
 
 .moments-grid.grid-1,
 .repost-grid.grid-1 {
   grid-template-columns: minmax(0, 1fr);
-  width: min(220px, 60vw);
+  width: min(260px, 60vw);
 }
 
 .grid-img {
   width: 100%;
   aspect-ratio: 1;
-  border-radius: 2px;
-  background: #eef1f6;
+  border-radius: var(--r-sm);
+  background: var(--surface-sunken);
 }
 
 .video-wrap {
-  margin-top: 8px;
+  margin-top: 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  width: min(320px, 100%);
+  width: min(340px, 100%);
 }
 
 .feed-video {
   width: 100%;
   max-height: 360px;
-  border-radius: 6px;
-  background: #000;
+  border-radius: var(--r-md);
+  background: #111113;
 }
 
+/* 转发引用盒：内凹浅灰面 */
 .repost-box {
-  margin-top: 8px;
-  background: #f2f4f7;
-  border-radius: 4px;
-  padding: 8px 10px;
-  color: #4b5563;
+  margin-top: 10px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  color: var(--text-secondary);
 }
 
 .repost-author {
-  color: #576b95;
+  color: var(--text-primary);
+  font-weight: 600;
   margin-bottom: 2px;
 }
 
 .meta-row {
-  margin-top: 8px;
+  margin-top: 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -441,58 +456,56 @@ function formatTime(timeStr) {
 .meta-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .time {
   font-size: 12px;
-  color: #a3a9b4;
+  color: var(--text-tertiary);
 }
 
 .inline-delete-btn {
   border: 0;
   background: transparent;
-  color: #f56c6c;
+  color: var(--el-color-danger);
   font-size: 12px;
   cursor: pointer;
   padding: 0;
+  opacity: 0.85;
+  transition: opacity var(--dur-fast) var(--ease);
 }
 
 .inline-delete-btn:hover {
+  opacity: 1;
   text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .dot-btn {
-  width: 24px;
-  height: 18px;
+  width: 28px;
+  height: 20px;
   border: 0;
-  border-radius: 3px;
-  background: #f0f2f5;
-  color: #7f8899;
+  border-radius: var(--r-pill);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
   cursor: pointer;
   font-weight: 700;
   letter-spacing: 1px;
+  line-height: 20px;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.dot-btn:hover {
+  background: var(--border-strong);
 }
 
 .actions-pop {
   display: flex;
   align-items: stretch;
   justify-content: space-between;
-  background: #44484f;
-  border-radius: 4px;
-  padding: 0;
-}
-
-/* 去掉 el-popover 默认外层白框，只保留内部黑色操作条 */
-:deep(.moments-action-pop.el-popper) {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-}
-
-:deep(.moments-action-pop .el-popper__arrow) {
-  display: none !important;
+  background: #1c1c21;
+  border-radius: 12px;
+  padding: 2px;
 }
 
 .action-btn {
@@ -502,10 +515,17 @@ function formatTime(timeStr) {
   color: #fff;
   cursor: pointer;
   font-size: 12px;
+  font-weight: 500;
   line-height: 30px;
-  padding: 0 10px;
+  padding: 0 12px;
   text-align: center;
   white-space: nowrap;
+  border-radius: 10px;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.action-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .action-btn.danger {
@@ -516,73 +536,90 @@ function formatTime(timeStr) {
   width: 1px;
   align-self: center;
   height: 14px;
-  background: rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.18);
 }
 
+/* 互动区：内凹浅灰面，与卡片白底拉开层级 */
 .interactions-wrap {
-  margin-top: 8px;
-  background: #f5f6f8;
-  border-radius: 4px;
-  padding: 8px 10px;
+  margin-top: 10px;
+  background: var(--surface-sunken);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
 }
 
 .likes-line {
-  color: #576b95;
+  color: var(--text-primary);
   font-size: 13px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   margin-bottom: 4px;
 }
 
 .heart {
-  font-size: 12px;
+  font-size: 13px;
+  color: var(--accent);
 }
 
 .comment-block {
-  border-top: 1px solid #e6e8ed;
-  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+  margin-top: 4px;
 }
 
 .comment-line {
   font-size: 13px;
   line-height: 1.7;
-  color: #1f2329;
+  color: var(--text-primary);
 }
 
 .comment-user {
-  color: #576b95;
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .clickable-user {
-  color: #576b95;
+  color: var(--text-primary);
+  font-weight: 600;
   cursor: pointer;
 }
 
 .clickable-user:hover {
   text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .comment-delete {
   margin-left: 8px;
   border: 0;
   background: transparent;
-  color: #9fa8ba;
+  color: var(--text-tertiary);
   cursor: pointer;
   font-size: 12px;
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.comment-delete:hover {
+  color: var(--el-color-danger);
 }
 
 .more-comments {
-  margin-top: 4px;
+  margin-top: 6px;
   border: 0;
   background: transparent;
-  color: #7e8aa5;
+  color: var(--text-secondary);
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
   padding: 0;
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.more-comments:hover {
+  color: var(--text-primary);
 }
 
 .comment-editor {
-  margin-top: 8px;
+  margin-top: 10px;
 }
 </style>

@@ -12,9 +12,9 @@
               <div class="hero-name-line">
                 <h1 class="nickname-row">
                   <span class="nickname">{{ user.nickname }}</span>
-                  <el-tag v-if="user.is_big_v" size="mid" effect="dark" type="warning">认证</el-tag>
+                  <el-tag v-if="user.is_big_v" effect="dark" type="warning" round>认证</el-tag>
                 </h1>
-                <el-button v-if="isMe" size="mid" plain @click="openProfileEditDialog">编辑信息</el-button>
+                <el-button v-if="isMe" plain round @click="openProfileEditDialog">编辑信息</el-button>
               </div>
               <p class="username">Feed号：{{ user.username }}</p>
             </div>
@@ -58,7 +58,7 @@
       </div>
     </section>
 
-    <section class="notes-section card mt-20">
+    <section class="notes-section mt-20">
       <div class="notes-header">
         <span class="notes-title">TA的笔记</span>
       </div>
@@ -417,31 +417,29 @@ function goToFeedDetail(feedId) {
 
 <style scoped>
 .profile-page {
+  max-width: 720px;
+  margin: 0 auto;
   padding-bottom: 20px;
 }
 
-.profile-hero {
-  position: relative;
-  margin-top: 0;
-}
-
 .hero-main {
-  border-radius: 18px;
-  padding: 20px 20px 16px;
-  border: 1px solid #eceef3;
-  box-shadow: 0 8px 24px rgba(23, 29, 45, 0.06);
+  padding: 28px 28px 24px;
 }
 
 .hero-top {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
+  gap: 20px;
 }
 
 .hero-avatar {
   flex: 0 0 auto;
-  border: 2px solid #ffffff;
-  box-shadow: 0 8px 20px rgba(17, 24, 39, 0.12);
+  border-radius: 24px;
+  border: 3px solid var(--surface-raised);
+  box-shadow: var(--shadow-2);
+  background: linear-gradient(135deg, #3a3a40 0%, #111113 100%);
+  color: #fff;
+  font-weight: 700;
 }
 
 .hero-right {
@@ -464,118 +462,108 @@ function goToFeedDetail(feedId) {
   margin: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .nickname {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1f2329;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
 }
 
 .username {
   margin: 6px 0 0;
-  color: #8c939f;
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 
 .bio {
-  margin: 10px 0 6px;
+  margin: 12px 0 6px;
   font-size: 14px;
-  color: #38404d;
-  line-height: 1.65;
+  color: var(--text-secondary);
+  line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .bio-empty {
-  color: #9ba3b1;
+  color: var(--text-tertiary);
 }
 
 .hero-stats {
-  margin-top: 14px;
+  margin-top: 16px;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
-  gap: 8px;
-}
-
-.hero-stats-three {
-  justify-content: flex-start;
+  gap: 10px;
 }
 
 .stat-item {
-  width: 86px;
+  min-width: 88px;
   text-align: center;
   cursor: pointer;
-  padding: 10px 8px 9px;
-  border-radius: 12px;
-  background: #f7f8fa;
-  border: 1px solid #f1f2f5;
-  transition: all 0.2s ease;
+  padding: 12px 14px 10px;
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  border: 1px solid transparent;
+  transition: transform var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 
 .stat-item:hover {
-  transform: translateY(-1px);
-  background: #fff;
-  border-color: #d9deea;
-  box-shadow: 0 6px 14px rgba(31, 41, 55, 0.08);
-}
-
-.stat-item:hover .stat-value {
-  color: #111827;
+  transform: translateY(-2px);
+  background: var(--surface-raised);
+  border-color: var(--border-subtle);
+  box-shadow: var(--shadow-2);
 }
 
 .stat-value {
   display: block;
-  font-size: 16px;
+  font-size: 20px;
   line-height: 1.15;
-  font-weight: 700;
-  color: #1f2329;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
 }
 
 .stat-label {
   display: block;
-  margin-top: 3px;
-  font-size: 11px;
-  color: #8c939f;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-tertiary);
 }
 
 .hero-actions {
-  margin-top: 14px;
+  margin-top: 16px;
   display: flex;
   gap: 10px;
 }
 
 .follow-btn,
 .chat-btn {
-  min-width: 106px;
-}
-
-.notes-section {
-  border-radius: 16px;
-  border: 1px solid #eceef3;
-  box-shadow: 0 6px 20px rgba(23, 29, 45, 0.05);
+  min-width: 108px;
+  font-weight: 600;
 }
 
 .notes-header {
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f2f3f5;
+  padding: 4px 4px 14px;
 }
 
 .notes-title {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
-  color: #1f2329;
-}
-
-.notes-list {
-  padding-top: 4px;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
 }
 
 .notes-loading,
 .notes-empty {
-  padding: 12px 0;
+  padding: 24px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
 }
 
 .edit-form {
@@ -593,7 +581,8 @@ function goToFeedDetail(feedId) {
 
 .form-label {
   font-size: 13px;
-  color: #6b7280;
+  font-weight: 500;
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
@@ -606,22 +595,23 @@ function goToFeedDetail(feedId) {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px;
-  border-radius: 8px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background var(--dur-fast) var(--ease);
 }
 
 .user-list-item:hover {
-  background: #f5f7fa;
+  background: var(--nav-hover-bg);
 }
 
-:deep(.el-dialog) {
-  border-radius: 14px;
+.user-list-item :deep(.el-avatar) {
+  border-radius: 10px;
 }
 
 .user-list-name {
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -629,56 +619,45 @@ function goToFeedDetail(feedId) {
 
 .user-list-username {
   font-size: 12px;
-  color: #999;
+  color: var(--text-tertiary);
 }
 
 .user-list-visit-time {
   font-size: 12px;
-  color: #b0b6c3;
+  color: var(--text-tertiary);
   margin-top: 2px;
 }
 
 @media (max-width: 768px) {
   .hero-main {
-    border-radius: 16px;
-    padding: 16px 14px 14px;
+    padding: 20px 18px;
   }
 
   .hero-top {
-    gap: 12px;
-  }
-
-  .hero-avatar {
-    transform: none;
+    gap: 14px;
   }
 
   .hero-name-line {
     align-items: flex-start;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
   }
 
   .nickname {
-    font-size: 21px;
+    font-size: 23px;
   }
 
   .hero-stats {
-    gap: 6px;
-  }
-
-  .hero-stats-three {
-    justify-content: flex-start;
+    gap: 8px;
   }
 
   .stat-item {
-    width: 78px;
-    padding: 9px 6px 8px;
-    border-radius: 10px;
+    min-width: 76px;
+    padding: 10px 10px 9px;
   }
 
   .stat-value {
-    font-size: 15px;
+    font-size: 17px;
   }
 }
-
 </style>

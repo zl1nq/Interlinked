@@ -150,11 +150,12 @@ function formatTime(timeStr) {
 <style scoped>
 .notifications-xhs {
   min-width: 0;
+  max-width: 720px;
+  margin: 0 auto;
 }
 
 .head {
-  border-radius: 14px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .title-row {
@@ -165,7 +166,9 @@ function formatTime(timeStr) {
 
 .title-row h2 {
   margin: 0;
-  font-size: 24px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .tabs {
@@ -178,22 +181,25 @@ function formatTime(timeStr) {
 }
 
 .state {
-  border-radius: 14px;
   text-align: center;
-  color: #8d97aa;
+  color: var(--text-tertiary);
 }
 
 .notice-item {
-  border-radius: 14px;
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 10px;
+  gap: 12px;
   cursor: pointer;
+  transition: transform var(--dur-med) var(--ease), box-shadow var(--dur-med) var(--ease);
 }
 
 .notice-item:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(27, 36, 58, 0.08);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-2);
+}
+
+.notice-item :deep(.el-avatar) {
+  border-radius: 12px;
 }
 
 .main {
@@ -204,21 +210,22 @@ function formatTime(timeStr) {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .name {
   font-weight: 700;
+  color: var(--text-primary);
 }
 
 .text {
-  color: #3f4654;
+  color: var(--text-secondary);
 }
 
 .line2 {
   margin-top: 4px;
   font-size: 12px;
-  color: #97a1b5;
+  color: var(--text-tertiary);
 }
 
 .right {
@@ -231,12 +238,12 @@ function formatTime(timeStr) {
 .unread-dot {
   width: 8px;
   height: 8px;
-  border-radius: 999px;
-  background: #ff2e4d;
+  border-radius: var(--r-pill);
+  background: var(--accent);
 }
 
 .type-tag {
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .more {

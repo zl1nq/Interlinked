@@ -26,7 +26,7 @@
       <div v-if="loading" class="card text-center">加载中...</div>
       <div v-else-if="feeds.length === 0" class="card text-center">暂无相关动态</div>
       <template v-else>
-        <div class="card" v-for="feed in feeds" :key="feed.id">
+        <div v-for="feed in feeds" :key="feed.id">
           <FeedCard
             :feed="feed"
             :can-delete-feed="false"
@@ -149,37 +149,44 @@ function goToFeedDetail(feedId) {
 <style scoped>
 .search-page {
   min-width: 0;
+  max-width: 720px;
+  margin: 0 auto;
 }
 .search-head {
-  border-radius: 14px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 .keyword {
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   margin-bottom: 8px;
 }
 .user-list {
   display: grid;
-  gap: 10px;
+  gap: 4px;
 }
 .user-item {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
-  padding: 8px;
-  border-radius: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
   cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
 }
 .user-item:hover {
-  background: #f6f8fb;
+  background: var(--nav-hover-bg);
+}
+.user-item :deep(.el-avatar) {
+  border-radius: 12px;
 }
 .name {
   font-size: 15px;
   font-weight: 600;
+  color: var(--text-primary);
 }
 .desc {
-  color: #8a93a5;
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 </style>

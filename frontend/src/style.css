@@ -4,29 +4,195 @@
   box-sizing: border-box;
 }
 
+/* ==================== 设计令牌（浅色主题） ==================== */
 :root {
-  --page-bg: #f5f7fa;
-  --text-color: #333;
-  --layout-bg: #f7f8fa;
-  --card-bg: #fff;
-  --nav-hover-bg: #f3f5f8;
+  /* 表面层级：页面底 < 内凹面 < 浮起卡片 */
+  --surface-base: #f4f4f6;
+  --surface-sunken: #ececf0;
+  --surface-raised: #ffffff;
+
+  /* 墨色与文字层级 */
+  --ink: #111113;
+  --on-ink: #ffffff;
+  --text-primary: #17171b;
+  --text-secondary: #55575f;
+  --text-tertiary: #9a9ca6;
+
+  /* 发丝边框（单一墨色透明度梯度） */
+  --border-subtle: rgba(17, 17, 26, 0.07);
+  --border-strong: rgba(17, 17, 26, 0.12);
+
+  /* 唯一强调色：注意力场景（未读、点赞、关键链接） */
+  --accent: #f43f5e;
+  --accent-hover: #e11d48;
+  --accent-soft: rgba(244, 63, 94, 0.1);
+
+  /* 圆角梯度 */
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-pill: 999px;
+
+  /* 阴影：单一暖黑基色的多层扩散 */
+  --shadow-1: 0 1px 2px rgba(17, 17, 26, 0.04), 0 1px 3px rgba(17, 17, 26, 0.05);
+  --shadow-2: 0 2px 6px rgba(17, 17, 26, 0.04), 0 10px 28px rgba(17, 17, 26, 0.08);
+  --shadow-3: 0 4px 12px rgba(17, 17, 26, 0.06), 0 20px 48px rgba(17, 17, 26, 0.12);
+
+  /* 动效：模拟质量的缓出曲线 */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-fast: 0.18s;
+  --dur-med: 0.35s;
+
+  /* 字体栈：Plus Jakarta Sans（西文/数字）+ 系统中文 */
+  --font-sans: 'Plus Jakarta Sans Variable', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+
+  /* ---- 兼容别名：旧变量名继续可用 ---- */
+  --page-bg: var(--surface-base);
+  --layout-bg: var(--surface-base);
+  --card-bg: var(--surface-raised);
+  --text-color: var(--text-primary);
+  --nav-hover-bg: rgba(17, 17, 26, 0.05);
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-sans);
   background-color: var(--page-bg);
   color: var(--text-color);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
+/* 深色骨架：本次仅保证导航外壳可用，内容区变量已就位待逐页适配 */
 body.dark {
-  --page-bg: #101318;
-  --text-color: #e8ecf3;
-  --layout-bg: #0e1116;
-  --card-bg: #1a2029;
+  --surface-base: #0e1116;
+  --surface-sunken: #101318;
+  --surface-raised: #1a2029;
+  --ink: #f2f3f5;
+  --on-ink: #111113;
+  --text-primary: #e8ecf3;
+  --text-secondary: #a6adba;
+  --text-tertiary: #6b7280;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
   --nav-hover-bg: #252d38;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.3), 0 10px 28px rgba(0, 0, 0, 0.4);
+  --shadow-3: 0 4px 12px rgba(0, 0, 0, 0.35), 0 20px 48px rgba(0, 0, 0, 0.5);
 }
 
-/* 动态操作弹层：去掉外层白框，只保留内部黑色条 */
+/* ==================== Element Plus 主题对齐 ==================== */
+:root {
+  --el-color-primary: #111113;
+  --el-color-primary-light-3: #3a3a40;
+  --el-color-primary-light-5: #77777f;
+  --el-color-primary-light-7: #b0b0b6;
+  --el-color-primary-light-8: #cfcfd4;
+  --el-color-primary-light-9: #ececf0;
+  --el-color-primary-dark-2: #000000;
+  --el-color-danger: #e5484d;
+  --el-color-danger-light-3: #ec6a6e;
+  --el-color-danger-light-5: #f19194;
+  --el-color-danger-light-7: #f6bcbe;
+  --el-color-danger-light-8: #f9d4d5;
+  --el-color-danger-light-9: #fce8e9;
+  --el-color-danger-dark-2: #c93036;
+  --el-font-family: var(--font-sans);
+  --el-text-color-primary: var(--text-primary);
+  --el-text-color-regular: var(--text-secondary);
+  --el-text-color-secondary: var(--text-tertiary);
+  --el-border-color: var(--border-strong);
+  --el-border-color-light: var(--border-subtle);
+  --el-border-color-lighter: var(--border-subtle);
+  --el-border-color-extra-light: var(--border-subtle);
+  --el-border-radius-base: 10px;
+  --el-border-radius-small: 8px;
+  --el-border-radius-round: 999px;
+  --el-fill-color: var(--surface-sunken);
+  --el-fill-color-light: rgba(17, 17, 26, 0.04);
+  --el-fill-color-lighter: rgba(17, 17, 26, 0.03);
+  --el-bg-color: var(--surface-raised);
+  --el-bg-color-overlay: var(--surface-raised);
+  --el-box-shadow: var(--shadow-2);
+  --el-box-shadow-light: var(--shadow-1);
+  --el-box-shadow-lighter: var(--shadow-1);
+  --el-box-shadow-dark: var(--shadow-3);
+}
+
+/* 弹层与对话框：大圆角 + 柔和扩散阴影 */
+.el-popper.is-light,
+.el-dialog,
+.el-message-box,
+.el-popover.el-popper {
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-3);
+}
+
+.el-dialog {
+  border-radius: var(--r-lg);
+}
+
+.el-message {
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-2);
+}
+
+/* ==================== 全局质感细节 ==================== */
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* 细滚动条，滚动时才显形 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(17, 17, 26, 0.16);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(17, 17, 26, 0.28);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 页面入场：路由切换时内容轻微上浮淡入 */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.router-section > * {
+  animation: page-enter 0.5s var(--ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .router-section > * {
+    animation: none;
+  }
+}
+
+/* 动态操作弹层（teleport 到 body，必须全局覆盖）：去掉外层白框，只保留内部墨黑条 */
 .moments-action-pop.el-popper,
 .moments-action-pop.el-popover {
   background: transparent !important;
@@ -40,22 +206,26 @@ body.dark {
   display: none !important;
 }
 
-a {
-  text-decoration: none;
-  color: inherit;
+.moments-action-pop .actions-pop {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-3);
 }
 
+/* ==================== 全局工具类 ==================== */
 .page-container {
   max-width: 800px;
   margin: 0 auto;
   padding: 20px;
 }
 
+/* 浮起卡片：白底 + 发丝边 + 多层柔和阴影 */
 .card {
   background: var(--card-bg);
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 20px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+  padding: 24px;
   margin-bottom: 16px;
 }
 
