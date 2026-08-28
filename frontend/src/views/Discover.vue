@@ -1,5 +1,18 @@
 <template>
   <div class="discover-xhs">
+    <!-- 移动端全局搜索（桌面端由顶栏承担） -->
+    <div class="mobile-global-search">
+      <el-icon class="ms-icon"><Search /></el-icon>
+      <input
+        v-model="globalKeyword"
+        class="ms-input"
+        type="text"
+        placeholder="搜索用户、动态"
+        @keyup.enter="goGlobalSearch"
+      />
+      <button class="ms-action" type="button" @click="goGlobalSearch">搜索</button>
+    </div>
+
     <div class="discover-head card">
       <div class="head-title">发现</div>
       <div class="head-sub">搜索用户并浏览推荐卡片</div>
@@ -71,6 +84,7 @@ const router = useRouter()
 const route = useRoute()
 
 const keyword = ref('')
+const globalKeyword = ref('')
 const cards = ref([])
 const searching = ref(false)
 const searched = ref(false)
@@ -110,6 +124,16 @@ function clearSearch() {
   total.value = 0
 }
 
+// 全局搜索：与桌面顶栏行为一致，跳转到聚合搜索结果页
+function goGlobalSearch() {
+  const q = globalKeyword.value.trim()
+  if (!q) {
+    router.push('/search_result')
+    return
+  }
+  router.push({ path: '/search_result', query: { keyword: q, type: 'users' } })
+}
+
 function goToProfile(userId) {
   router.push(`/profile/${userId}`)
 }
@@ -134,6 +158,57 @@ function coverStyle(user) {
 <style scoped>
 .discover-xhs {
   min-width: 0;
+}
+
+/* 移动端全局搜索胶囊：默认隐藏，仅 ≤960px 显示 */
+.mobile-global-search {
+  display: none;
+}
+
+@media (max-width: 960px) {
+  .mobile-global-search {
+    display: grid;
+    grid-template-columns: 20px 1fr auto;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 6px 0 14px;
+    margin-bottom: 12px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-pill);
+    box-shadow: var(--shadow-1);
+  }
+
+  .ms-icon {
+    color: var(--text-tertiary);
+    font-size: 15px;
+  }
+
+  .ms-input {
+    border: 0;
+    outline: none;
+    height: 100%;
+    font-size: 16px; /* ≥16px 避免 iOS 聚焦自动放大 */
+    color: var(--text-primary);
+    background: transparent;
+  }
+
+  .ms-input::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  .ms-action {
+    border: 0;
+    height: 34px;
+    padding: 0 16px;
+    border-radius: var(--r-pill);
+    background: var(--ink);
+    color: var(--on-ink);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+  }
 }
 
 .discover-head {

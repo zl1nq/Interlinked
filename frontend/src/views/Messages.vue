@@ -676,4 +676,12 @@ function formatTime(timeStr) {
   color: var(--text-tertiary);
   font-size: 14px;
 }
+
+/* 移动端：底部 Tab 导航占据视口底部，聊天高度相应收缩 */
+@media (max-width: 960px) {
+  .messages-page {
+    height: calc(100dvh - 86px - env(safe-area-inset-bottom, 0px));
+    min-height: 0;
+  }
+}
 </style>

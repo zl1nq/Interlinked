@@ -96,6 +96,15 @@
       </div>
     </section>
 
+    <!-- 移动端设置入口：仅本人可见，桌面端由侧导航下拉承担 -->
+    <section v-if="isMe" class="mobile-settings card">
+      <div class="settings-title">设置</div>
+      <button class="logout-row" type="button" @click="confirmLogout">
+        <el-icon><SwitchButton /></el-icon>
+        <span>退出登录</span>
+      </button>
+    </section>
+
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px">
       <div v-if="dialogUsers.length === 0" class="text-center">
         <el-empty :description="dialogTitle + '列表为空'" />
@@ -163,7 +172,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { userApi, followApi, feedApi, uploadApi } from '../api'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import FeedCard from '../components/FeedCard.vue'
 
 const route = useRoute()
@@ -404,6 +413,17 @@ function goToProfile(userId) {
   router.push(`/profile/${userId}`)
 }
 
+function confirmLogout() {
+  ElMessageBox.confirm('确定退出登录吗？', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(() => {
+    userStore.logout()
+    router.push('/login')
+  }).catch(() => {})
+}
+
 function goToChat() {
   if (!user.value?.id) return
   router.push({ path: '/messages', query: { target: user.value.id, name: user.value.nickname || user.value.username || '私信' } })
@@ -570,6 +590,44 @@ function goToFeedDetail(feedId) {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* 移动端设置入口：默认隐藏，仅 ≤960px 显示 */
+.mobile-settings {
+  display: none;
+}
+
+@media (max-width: 960px) {
+  .mobile-settings {
+    display: block;
+  }
+}
+
+.settings-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.logout-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  color: var(--el-color-danger);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.logout-row:hover {
+  background: var(--accent-soft);
 }
 
 .edit-avatar-row {

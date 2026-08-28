@@ -43,24 +43,11 @@
           </button>
           <template #dropdown>
             <el-dropdown-menu class="settings-menu" :style="{ width: `${settingsMenuWidth}px` }">
-              <el-dropdown-item command="ops" class="settings-row">
-                <span class="settings-left">
-                  <el-icon><Monitor /></el-icon>
-                  <span>运维面板</span>
-                </span>
-              </el-dropdown-item>
               <el-dropdown-item command="logout" class="settings-row">
                 <span class="settings-left">
                   <el-icon><SwitchButton /></el-icon>
                   <span>退出登录</span>
                 </span>
-              </el-dropdown-item>
-              <el-dropdown-item class="settings-row dark-mode-item" @click.stop>
-                <span class="settings-left">
-                  <el-icon><Setting /></el-icon>
-                  <span>深色模式</span>
-                </span>
-                <el-switch v-model="isDarkMode" @change="toggleDarkMode" />
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -88,6 +75,36 @@
         <router-view />
       </section>
     </main>
+
+    <!-- 移动端底部 Tab 导航（桌面端隐藏） -->
+    <nav class="bottom-nav">
+      <button class="tab-item" :class="{ active: isActive('/discover') }" @click="router.push('/discover')">
+        <el-icon><Compass /></el-icon>
+        <span>发现</span>
+      </button>
+      <button class="tab-item" :class="{ active: isActive('/timeline') }" @click="router.push('/timeline')">
+        <el-icon><Connection /></el-icon>
+        <span>动态</span>
+      </button>
+      <button class="tab-item" :class="{ active: isActive('/messages') }" @click="router.push('/messages')">
+        <el-icon><ChatLineRound /></el-icon>
+        <span>消息</span>
+      </button>
+      <button class="tab-item" :class="{ active: isActive('/notifications') }" @click="router.push('/notifications')">
+        <el-icon><Bell /></el-icon>
+        <span>通知</span>
+        <span v-if="notificationUnread > 0" class="tab-badge">{{ notificationUnread > 99 ? '99+' : notificationUnread }}</span>
+      </button>
+      <button class="tab-item" :class="{ active: route.path.startsWith('/profile') }" @click="router.push(`/profile/${userStore.userInfo?.id}`)">
+        <el-icon><User /></el-icon>
+        <span>我</span>
+      </button>
+    </nav>
+
+    <!-- 移动端悬浮发布按钮 -->
+    <button class="publish-fab" type="button" aria-label="发布" @click="router.push('/publish')">
+      <el-icon :size="24"><Plus /></el-icon>
+    </button>
   </div>
 </template>
 
@@ -102,7 +119,6 @@ const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const searchKeyword = ref('')
-const isDarkMode = ref(false)
 const notificationUnread = ref(0)
 const settingsTriggerRef = ref(null)
 const settingsMenuWidth = ref(220)
@@ -112,10 +128,6 @@ const isActive = (path) => computed(() => route.path === path).value
 function applyDarkMode(enabled) {
   document.body.classList.toggle('dark', enabled)
   localStorage.setItem('theme', enabled ? 'dark' : 'light')
-}
-
-function toggleDarkMode(value) {
-  applyDarkMode(value)
 }
 
 function goDiscoverSearch() {
@@ -128,11 +140,6 @@ function goDiscoverSearch() {
 }
 
 function handleSettingCommand(command) {
-  if (command === 'ops') {
-    router.push('/ops')
-    return
-  }
-
   if (command === 'logout') {
     ElMessageBox.confirm('确定退出登录吗？', '提示', {
       confirmButtonText: '确定',
@@ -388,43 +395,111 @@ async function refreshNotificationUnread() {
   font-size: 15px;
 }
 
-:deep(.settings-popper .dark-mode-item .el-switch) {
-  margin-left: auto;
+/* 移动端专属组件：桌面默认隐藏 */
+.bottom-nav,
+.publish-fab {
+  display: none;
 }
 
 @media (max-width: 960px) {
   .layout-xhs {
     grid-template-columns: 1fr;
+    gap: 0;
+    padding: 0 0 calc(58px + env(safe-area-inset-bottom, 0px) + 16px);
   }
 
   .side-nav {
-    position: static;
-    height: auto;
+    display: none;
+  }
+
+  .top-bar {
+    display: none;
+  }
+
+  .router-section {
+    padding: 12px 12px 0;
+  }
+
+  /* 底部 Tab 栏：吸底 + 安全区，激活项墨黑 */
+  .bottom-nav {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(5, 1fr);
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100;
+    height: calc(58px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--surface-raised);
+    border-top: 1px solid var(--border-subtle);
   }
 
-  .side-bottom {
-    margin-top: 0;
-  }
-
-  .brand {
-    grid-column: 1 / -1;
-    padding-bottom: 8px;
-  }
-
-  .nav-item {
+  .tab-item {
+    position: relative;
+    border: 0;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
+    gap: 3px;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 500;
+    transition: color var(--dur-fast) var(--ease);
   }
 
-  .setting-item {
-    grid-column: 1 / -1;
-    justify-content: center;
+  .tab-item .el-icon {
+    font-size: 21px;
   }
 
-  .global-search {
-    width: 100%;
+  .tab-item.active {
+    color: var(--ink);
+  }
+
+  .tab-badge {
+    position: absolute;
+    top: 6px;
+    left: calc(50% + 4px);
+    min-width: 17px;
+    height: 17px;
+    line-height: 17px;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    text-align: center;
+    padding: 0 4px;
+  }
+
+  /* 悬浮发布按钮：右下角墨黑圆钮 */
+  .publish-fab {
+    display: grid;
+    place-items: center;
+    position: fixed;
+    right: 16px;
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px) + 16px);
+    z-index: 101;
+    width: 54px;
+    height: 54px;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: var(--ink);
+    color: var(--on-ink);
+    cursor: pointer;
+    box-shadow: var(--shadow-2);
+    transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+  }
+
+  .publish-fab:hover {
+    box-shadow: var(--shadow-3);
+  }
+
+  .publish-fab:active {
+    transform: scale(0.94);
   }
 }
 </style>
