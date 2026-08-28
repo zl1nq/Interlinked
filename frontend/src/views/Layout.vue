@@ -4,6 +4,11 @@
     <aside class="side-nav card">
       <div class="brand" @click="router.push('/')"><span class="brand-inter">Inter</span><span class="brand-linked">Linked</span></div>
 
+      <button class="nav-item" :class="{ active: isActive('/discover') }" @click="router.push('/discover')">
+        <el-icon><Compass /></el-icon>
+        <span>发现</span>
+      </button>
+
       <button class="nav-item" :class="{ active: isActive('/timeline') }" @click="router.push('/timeline')">
         <el-icon><Connection /></el-icon>
         <span>动态</span>
@@ -396,7 +401,7 @@ async function refreshNotificationUnread() {
     position: static;
     height: auto;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 8px;
   }
 
@@ -414,6 +419,7 @@ async function refreshNotificationUnread() {
   }
 
   .setting-item {
+    grid-column: 1 / -1;
     justify-content: center;
   }
 
