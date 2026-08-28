@@ -5,6 +5,7 @@ import (
 	"feed/cache"
 	"feed/config"
 	"feed/models"
+	"feed/utils"
 	"fmt"
 	"log"
 	"maps"
@@ -158,35 +159,40 @@ func PublishFeed(feedID, authorID uint) error {
 		Timestamp: float64(time.Now().UnixMilli()),
 	}
 
+	//如果熔断开启
 	if isCircuitOpen() {
 		degradeToOutbox(msg) //降级为发件箱
 		return nil
 	}
 
+	//将消息结构体序列化为JSON字节数组，如果失败则记录日志并返回错误
 	body, err := json.Marshal(msg)
 	if err != nil {
-		log.Printf("[MQ] Marshal message failed: %v", err)
+		utils.LogError(fmt.Sprintf("[MQ] Marshal message failed: %v", err))
 		return err
 	}
 
+	//获取互斥锁保护发布者资源，函数返回时自动释放锁
 	publisherMu.Lock()
 	defer publisherMu.Unlock()
 
+	//如果发布者通道为空，则初始化发布者，初始化失败则降级到发件箱并返回错误
 	if publisherChan == nil {
 		if err := initPublisher(); err != nil {
-			log.Printf("[MQ] Re-init publisher failed: %v", err)
+			utils.LogError(fmt.Sprintf("[MQ] Re-init publisher failed: %v", err))
 			degradeToOutbox(msg)
 			return err
 		}
 	}
-	//消息幂等键
+	//根据feedID和authorID生成消息的幂等键，用于消息去重
 	msgKey := messageKey(feedID, authorID)
 	//发布消息到队列
 	err = publishToQueue(publisherQueue.Name, body, amqp.Table{
 		headerRetryCount: int32(0),
 		headerMessageKey: msgKey,
 	})
-	if err != nil { //发布消息失败，则重置发布者 重试发布消息
+	//发布消息失败，则重置发布者 重试发布消息
+	if err != nil {
 		//重置发布者
 		_ = resetPublisher()
 		//如果发布者不为空，则重新发布消息
@@ -200,7 +206,7 @@ func PublishFeed(feedID, authorID uint) error {
 	//发布失败 打开熔断器 降级为发件箱
 	if err != nil {
 		atomic.AddUint64(&mqPublishFailCount, 1)
-		log.Printf("[MQ] Publish feed %d failed: %v", feedID, err)
+		utils.LogError(fmt.Sprintf("[MQ] Publish feed %d failed: %v", feedID, err))
 		openCircuit(15 * time.Second) //打开熔断器
 		degradeToOutbox(msg)          //降级为发件箱
 		return err
@@ -208,7 +214,7 @@ func PublishFeed(feedID, authorID uint) error {
 
 	closeCircuit() //关闭熔断器
 
-	log.Printf("[MQ] Feed %d published to queue", feedID)
+	utils.LogInfo(fmt.Sprintf("[MQ] Feed %d published to queue", feedID))
 	return nil
 }
 
@@ -532,12 +538,14 @@ func isCircuitOpen() bool {
 
 // 打开熔断器
 func openCircuit(duration time.Duration) {
-	until := time.Now().Add(duration).Unix()     //熔断开启时间
-	old := atomic.LoadInt64(&mqCircuitOpenUntil) //旧的熔断开启时间
+	//熔断结束时间（当前时间 + 持续时长）
+	until := time.Now().Add(duration).Unix()
+	//获取旧的熔断结束时间
+	old := atomic.LoadInt64(&mqCircuitOpenUntil)
 	atomic.StoreInt64(&mqCircuitOpenUntil, until)
 	if old == 0 || time.Now().Unix() >= old {
 		atomic.AddUint64(&mqCircuitOpenCount, 1) //熔断开启次数加1
-		log.Printf("[MQ][Circuit] opened for %s", duration)
+		utils.LogInfo(fmt.Sprintf("[MQ][Circuit] opened for %s", duration))
 	}
 }
 
@@ -546,14 +554,16 @@ func closeCircuit() {
 	old := atomic.LoadInt64(&mqCircuitOpenUntil)
 	if old != 0 {
 		atomic.AddUint64(&mqCircuitCloseCount, 1)
-		log.Printf("[MQ][Circuit] closed")
+		utils.LogInfo("[MQ][Circuit] closed")
 	}
 	atomic.StoreInt64(&mqCircuitOpenUntil, 0)
 }
 
 // degradeToOutbox 降级路径：MQ 不可用时仅写作者 outbox，避免发布链路被阻塞。
 func degradeToOutbox(msg FeedMessage) {
+	//统计降级次数：通过原子计数器记录降级发生频率
 	atomic.AddUint64(&mqDegradeCount, 1)
+	//存储到发件箱：将消息保存到缓存中的发件箱，确保消息不会丢失
 	if err := cache.AddToOutbox(msg.AuthorID, msg.FeedID, msg.Timestamp); err != nil {
 		log.Printf("[MQ][Degrade] add to outbox failed, author=%d feed=%d err=%v", msg.AuthorID, msg.FeedID, err)
 		return

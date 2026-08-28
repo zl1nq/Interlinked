@@ -94,7 +94,8 @@ func AddToOutbox(userID, feedID uint, timestamp float64) error {
 	if err := addToSortedSet(key, feedID, timestamp); err != nil {
 		return err
 	}
-	trimSortedSetByMaxSize(key, int64(config.AppConfig.Feed.OutboxMaxSize)) //修剪发件箱，保持发件箱大小不超过配置的大小
+	//修剪发件箱，保持发件箱大小不超过配置的大小
+	trimSortedSetByMaxSize(key, int64(config.AppConfig.Feed.OutboxMaxSize))
 	return nil
 }
 
@@ -297,6 +298,8 @@ func IsBigV(userID uint) (bool, error) {
 }
 
 func addToSortedSet(key string, member uint, score float64) error {
+	//调用Redis客户端的ZAdd命令，将元素添加到有序集合中
+	//创建一个有序集合元素，分数/权重为timestamp，成员为feedID
 	return RedisClient.ZAdd(Ctx, key, &redis.Z{Score: score, Member: member}).Err()
 }
 
