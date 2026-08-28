@@ -27,6 +27,10 @@
   --accent-hover: #e11d48;
   --accent-soft: rgba(244, 63, 94, 0.1);
 
+  /* 品牌双色：Inter 红 / Linked 蓝 */
+  --brand-inter: #f43f5e;
+  --brand-linked: #2563eb;
+
   /* 圆角梯度 */
   --r-sm: 8px;
   --r-md: 14px;

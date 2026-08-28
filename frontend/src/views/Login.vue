@@ -1,7 +1,7 @@
 <template>
   <div class="login-container">
     <div class="login-card">
-      <h1 class="login-title">Feed<span class="accent">Link</span></h1>
+      <h1 class="login-title"><span class="accent">Inter</span><span class="accent-blue">Linked</span></h1>
       <p class="login-subtitle">千万级推拉混合 Feed 流</p>
 
       <el-form ref="formRef" :model="form" :rules="rules" label-width="0" size="large">
@@ -69,9 +69,77 @@ async function handleLogin() {
   justify-content: center;
   background: var(--surface-base);
   padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 品牌双色光晕：Inter 红 / Linked 蓝，绕页面中心逆时针公转 */
+.login-container::before,
+.login-container::after {
+  content: '';
+  position: absolute;
+  width: 50vmax;
+  height: 50vmax;
+  border-radius: 50%;
+  filter: blur(28px);
+  pointer-events: none;
+}
+
+.login-container::before {
+  top: 50%;
+  left: 50%;
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.5), transparent 55%);
+  animation: aurora-orbit-a 40s linear infinite;
+}
+
+.login-container::after {
+  top: 50%;
+  left: 50%;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.48), transparent 55%);
+  animation: aurora-orbit-b 40s linear infinite;
+}
+
+/* 双光晕绕页面中心逆时针公转：rotate 定轨道角度，translateX 定轨道半径；
+   两团相差 180° 相位，公转中各自缓慢胀缩 */
+@keyframes aurora-orbit-a {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg) translateX(30vmin) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(-180deg) translateX(30vmin) scale(1.15);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(-360deg) translateX(30vmin) scale(1);
+  }
+}
+
+@keyframes aurora-orbit-b {
+  from {
+    transform: translate(-50%, -50%) rotate(180deg) translateX(30vmin) scale(1.1);
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(0deg) translateX(30vmin) scale(0.92);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(-180deg) translateX(30vmin) scale(1.1);
+  }
+}
+
+:global(body.dark) .login-container::before,
+:global(body.dark) .login-container::after {
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-container::before,
+  .login-container::after {
+    animation: none;
+  }
 }
 
 .login-card {
+  position: relative;
+  z-index: 1;
   width: 400px;
   max-width: 100%;
   padding: 44px 40px 36px;
@@ -92,7 +160,11 @@ async function handleLogin() {
 }
 
 .login-title .accent {
-  color: var(--accent);
+  color: var(--brand-inter);
+}
+
+.login-title .accent-blue {
+  color: var(--brand-linked);
 }
 
 .login-subtitle {

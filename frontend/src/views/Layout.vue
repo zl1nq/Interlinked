@@ -2,7 +2,7 @@
   <div class="layout-xhs">
     <!-- 左侧导航 -->
     <aside class="side-nav card">
-      <div class="brand" @click="router.push('/')">Feed</div>
+      <div class="brand" @click="router.push('/')"><span class="brand-inter">Inter</span><span class="brand-linked">Linked</span></div>
 
       <button class="nav-item" :class="{ active: isActive('/timeline') }" @click="router.push('/timeline')">
         <el-icon><Connection /></el-icon>
@@ -202,6 +202,14 @@ async function refreshNotificationUnread() {
   letter-spacing: -0.03em;
   padding: 8px 12px 20px;
   cursor: pointer;
+}
+
+.brand-inter {
+  color: var(--brand-inter);
+}
+
+.brand-linked {
+  color: var(--brand-linked);
 }
 
 .nav-item {
