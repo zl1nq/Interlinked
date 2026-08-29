@@ -1,8 +1,10 @@
 package services
 
 import (
+	"errors"
 	"feed/models"
 	"feed/repository"
+	"log"
 	"time"
 )
 
@@ -92,4 +94,44 @@ func (s *NotificationService) ListNotifications(userID uint, page, pageSize int)
 // MarkAllRead 全部标记已读。
 func (s *NotificationService) MarkAllRead(userID uint) error {
 	return s.notificationRepo.MarkAllRead(userID) //标记已读
+}
+
+// DeleteNotification 删除单条通知（无论是否已读），仅限本人通知。
+// 返回删除后的最新未读数，便于前端直接刷新未读徽标。
+func (s *NotificationService) DeleteNotification(userID, notificationID uint) (int64, error) {
+	rows, err := s.notificationRepo.DeleteByUserAndID(userID, notificationID)
+	if err != nil {
+		return 0, err
+	}
+	if rows == 0 {
+		return 0, errors.New("通知不存在")
+	}
+	unread, err := s.notificationRepo.CountUnread(userID)
+	if err != nil {
+		return 0, err
+	}
+	return unread, nil
+}
+
+// ClearReadNotifications 一键清空全部已读通知（未读保留），返回删除条数。
+func (s *NotificationService) ClearReadNotifications(userID uint) (int64, error) {
+	return s.notificationRepo.DeleteReadByUser(userID)
+}
+
+// RetractNotification 撤回一条行为通知（取消点赞/删评论/取关）。
+// 与创建通知一样 fire-and-forget：失败仅记日志，不影响主流程。
+func (s *NotificationService) RetractNotification(actorID, receiverID, targetID uint, notificationType string) {
+	if actorID == 0 || receiverID == 0 {
+		return
+	}
+	if _, err := s.notificationRepo.DeleteByActorTarget(actorID, receiverID, targetID, notificationType); err != nil {
+		log.Printf("retract notification failed: actor=%d receiver=%d target=%d type=%s err=%v",
+			actorID, receiverID, targetID, notificationType, err)
+	}
+}
+
+// CleanupFeedNotifications 动态删除时的级联清理：删除指向该动态的全部点赞/评论通知。
+func (s *NotificationService) CleanupFeedNotifications(feedID uint) error {
+	_, err := s.notificationRepo.DeleteByTargetFeed(feedID)
+	return err
 }

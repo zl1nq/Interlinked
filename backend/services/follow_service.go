@@ -127,6 +127,8 @@ func (s *FollowService) Unfollow(userID, followedID uint) error {
 	s.userService.UpdateBigVStatus(followedID)
 	//清理收件箱
 	go s.cleanInbox(userID, followedID)
+	//撤回"关注了你"通知（follow 类型通知 target_id=0）
+	s.notificationService.RetractNotification(userID, followedID, 0, models.NotificationTypeFollow)
 
 	return nil
 }

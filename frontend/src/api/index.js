@@ -157,6 +157,14 @@ export const notificationApi = {
     markAllRead() {
         return request.post('/notifications/read-all')
     },
+    deleteNotification(id) {
+        // 物理删除单条通知，data.unread_count 为删除后最新未读数
+        return request.delete(`/notifications/${id}`)
+    },
+    clearReadNotifications() {
+        // 一键清空全部已读通知（未读保留），data.deleted_count 为本次删除条数
+        return request.post('/notifications/clear-read')
+    },
 }
 
 export const messageApi = {

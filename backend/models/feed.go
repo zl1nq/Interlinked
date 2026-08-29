@@ -39,21 +39,22 @@ func (Feed) TableName() string {
 // - 与数据库实体 Feed 分离，便于扩展展示字段；
 // - OriginalFeed 用于转发场景展示引用内容。
 type FeedResponse struct {
-	ID           uint          `json:"id"`
-	UserID       uint          `json:"user_id"`
-	Content      string        `json:"content"`
-	Images       string        `json:"images"`
-	Videos       string        `json:"videos"`
-	FeedType     int           `json:"feed_type"`
-	OriginalID   *uint         `json:"original_id"`
-	OriginalFeed *FeedResponse `json:"original_feed,omitempty"` // 转发的原始Feed
-	LikeCount    int64         `json:"like_count"`
-	CommentCount int64         `json:"comment_count"`
-	ShareCount   int64         `json:"share_count"`
-	CreatedAt    time.Time     `json:"created_at"`
-	UpdatedAt    time.Time     `json:"updated_at"`
-	Author       UserResponse  `json:"author"`
-	IsLiked      bool          `json:"is_liked"`
+	ID              uint          `json:"id"`
+	UserID          uint          `json:"user_id"`
+	Content         string        `json:"content"`
+	Images          string        `json:"images"`
+	Videos          string        `json:"videos"`
+	FeedType        int           `json:"feed_type"`
+	OriginalID      *uint         `json:"original_id"`
+	OriginalFeed    *FeedResponse `json:"original_feed,omitempty"` // 转发的原始Feed
+	OriginalDeleted bool          `json:"original_deleted"`        // 原帖已被删除（OriginalFeed 为空且此标记为 true）
+	LikeCount       int64         `json:"like_count"`
+	CommentCount    int64         `json:"comment_count"`
+	ShareCount      int64         `json:"share_count"`
+	CreatedAt       time.Time     `json:"created_at"`
+	UpdatedAt       time.Time     `json:"updated_at"`
+	Author          UserResponse  `json:"author"`
+	IsLiked         bool          `json:"is_liked"`
 }
 
 // Timeline 收件箱模型（推模式下，将feed推送到粉丝的收件箱）

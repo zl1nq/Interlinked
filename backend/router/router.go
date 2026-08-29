@@ -112,6 +112,8 @@ func SetupRouter() *gin.Engine {
 			// 通知中心
 			authenticated.GET("/notifications", notificationHandler.ListNotifications)
 			authenticated.POST("/notifications/read-all", notificationHandler.MarkAllRead)
+			authenticated.DELETE("/notifications/:id", notificationHandler.DeleteNotification)          //删除单条通知
+			authenticated.POST("/notifications/clear-read", notificationHandler.ClearReadNotifications) //一键清空已读
 
 			// 运维观测
 			authenticated.GET("/ops/mq/metrics", opsHandler.MQMetrics)

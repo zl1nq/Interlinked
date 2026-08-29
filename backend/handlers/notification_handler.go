@@ -57,3 +57,45 @@ func (h *NotificationHandler) MarkAllRead(c *gin.Context) {
 	}
 	utils.SuccessWithMessage(c, "已全部标记已读", nil)
 }
+
+// DeleteNotification 删除单条通知（无论是否已读），返回最新未读数。
+// DELETE /api/notifications/:id
+func (h *NotificationHandler) DeleteNotification(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+	if userID == 0 {
+		utils.Unauthorized(c, "请先登录")
+		return
+	}
+
+	notificationID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.Error(c, 400, "通知ID无效")
+		return
+	}
+
+	unread, err := h.notificationService.DeleteNotification(userID, uint(notificationID))
+	if err != nil {
+		utils.Error(c, 400, err.Error())
+		return
+	}
+
+	utils.SuccessWithMessage(c, "删除成功", gin.H{"unread_count": unread})
+}
+
+// ClearReadNotifications 一键清空全部已读通知（未读保留），返回删除条数。
+// POST /api/notifications/clear-read
+func (h *NotificationHandler) ClearReadNotifications(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+	if userID == 0 {
+		utils.Unauthorized(c, "请先登录")
+		return
+	}
+
+	deleted, err := h.notificationService.ClearReadNotifications(userID)
+	if err != nil {
+		utils.Error(c, 500, "清空已读通知失败")
+		return
+	}
+
+	utils.SuccessWithMessage(c, "清空成功", gin.H{"deleted_count": deleted})
+}

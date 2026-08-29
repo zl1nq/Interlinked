@@ -3,7 +3,10 @@
     <section class="head card">
       <div class="title-row">
         <h2>通知</h2>
-        <el-button text @click="markAllRead">全部已读</el-button>
+        <div class="title-actions">
+          <el-button text @click="markAllRead">全部已读</el-button>
+          <el-button text :loading="clearing" @click="clearRead">清空已读</el-button>
+        </div>
       </div>
 
       <!-- 小红书风格分类标签 -->
@@ -24,7 +27,6 @@
         v-for="n in filteredList"
         :key="n.id"
         class="notice-item card"
-        @click="goTarget(n)"
       >
         <div class="left">
           <el-avatar :size="44" :src="n.actor?.avatar || ''">{{ n.actor?.nickname?.charAt(0) || 'U' }}</el-avatar>
@@ -39,8 +41,13 @@
         </div>
 
         <div class="right">
-          <span v-if="!n.is_read" class="unread-dot" />
-          <el-tag size="small" effect="plain" class="type-tag">{{ typeLabel(n.type) }}</el-tag>
+          <div class="right-meta">
+            <span v-if="!n.is_read" class="unread-dot" />
+            <el-tag size="small" effect="plain" class="type-tag">{{ typeLabel(n.type) }}</el-tag>
+          </div>
+          <button class="notice-delete" type="button" aria-label="删除通知" @click="handleDelete(n)">
+            <el-icon><Delete /></el-icon>
+          </button>
         </div>
       </article>
 
@@ -53,10 +60,11 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { notificationApi } from '../api'
+import { useNotificationStore } from '../stores/notification'
+import { ElMessage } from 'element-plus'
 
-const router = useRouter()
+const notificationStore = useNotificationStore()
 
 const list = ref([])
 const page = ref(1)
@@ -64,6 +72,7 @@ const pageSize = 20
 const hasMore = ref(false)
 const loading = ref(false)
 const loadingMore = ref(false)
+const clearing = ref(false)
 const activeTab = ref('all')
 
 const filteredList = computed(() => {
@@ -106,15 +115,39 @@ async function loadMore() {
 async function markAllRead() {
   await notificationApi.markAllRead()
   list.value = list.value.map((n) => ({ ...n, is_read: true }))
+  notificationStore.setUnreadCount(0)
 }
 
-function goTarget(n) {
-  if (n.type === 'follow') {
-    router.push(`/profile/${n.actor?.id}`)
-    return
+// 单条删除：本地移除并用响应的 unread_count 覆盖角标
+async function handleDelete(n) {
+  try {
+    const res = await notificationApi.deleteNotification(n.id)
+    list.value = list.value.filter((item) => item.id !== n.id)
+    if (res.data?.unread_count !== undefined) {
+      notificationStore.setUnreadCount(res.data.unread_count)
+    }
+    ElMessage.success('通知已删除')
+  } catch (e) {
+    // handled by interceptor
   }
-  if (n.target_id) {
-    router.push('/timeline')
+}
+
+// 清空已读：未读保留所以角标不变；已读条目移除后当前页可能出现空洞，重新拉第一页
+async function clearRead() {
+  clearing.value = true
+  try {
+    const res = await notificationApi.clearReadNotifications()
+    const count = Number(res.data?.deleted_count) || 0
+    if (count === 0) {
+      ElMessage.info('暂无可清理的已读通知')
+      return
+    }
+    ElMessage.success(`已清理 ${count} 条已读通知`)
+    await loadNotifications(true)
+  } catch (e) {
+    // handled by interceptor
+  } finally {
+    clearing.value = false
   }
 }
 
@@ -189,13 +222,6 @@ function formatTime(timeStr) {
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 12px;
-  cursor: pointer;
-  transition: transform var(--dur-med) var(--ease), box-shadow var(--dur-med) var(--ease);
-}
-
-.notice-item:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-2);
 }
 
 .notice-item :deep(.el-avatar) {
@@ -230,6 +256,12 @@ function formatTime(timeStr) {
 
 .right {
   display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.right-meta {
+  display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
@@ -244,6 +276,34 @@ function formatTime(timeStr) {
 
 .type-tag {
   border-radius: var(--r-pill);
+}
+
+.notice-delete {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.notice-delete:hover {
+  color: var(--el-color-danger);
+  background: var(--accent-soft);
+}
+
+.notice-delete .el-icon {
+  font-size: 14px;
+}
+
+.title-actions {
+  display: inline-flex;
+  align-items: center;
 }
 
 .more {

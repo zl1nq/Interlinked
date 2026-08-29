@@ -40,12 +40,14 @@ type FeedRepository interface {
 	CreateLike(tx *gorm.DB, like *models.Like) error
 	GetLike(userID, feedID uint) (*models.Like, error)
 	DeleteLike(tx *gorm.DB, like *models.Like) error
+	DeleteLikesByFeedID(feedID uint) error
 	ListLikesByFeedID(feedID uint, page, pageSize int) ([]models.Like, int64, error)
 	ListLikesByUserAndFeedIDs(userID uint, feedIDs []uint) ([]models.Like, error)
 
 	CreateComment(tx *gorm.DB, comment *models.Comment) error
 	GetCommentByIDAndFeedID(commentID, feedID uint) (*models.Comment, error)
 	DeleteComment(tx *gorm.DB, comment *models.Comment) error
+	DeleteCommentsByFeedID(feedID uint) error
 	ListCommentsByFeedID(feedID uint, page, pageSize int) ([]models.Comment, int64, error)
 
 	BeginTx() *gorm.DB
@@ -206,6 +208,16 @@ func (r *feedMySQLRepository) ListTimelinesByFeedID(feedID uint) ([]models.Timel
 
 func (r *feedMySQLRepository) DeleteTimelineByFeedID(feedID uint) error {
 	return r.db.Where("feed_id = ?", feedID).Delete(&models.Timeline{}).Error
+}
+
+// DeleteLikesByFeedID 物理删除动态的全部点赞记录（Like 无软删字段，Delete 即物理删）。
+func (r *feedMySQLRepository) DeleteLikesByFeedID(feedID uint) error {
+	return r.db.Where("feed_id = ?", feedID).Delete(&models.Like{}).Error
+}
+
+// DeleteCommentsByFeedID 物理删除动态的全部评论（Comment 有软删字段，用 Unscoped 绕过）。
+func (r *feedMySQLRepository) DeleteCommentsByFeedID(feedID uint) error {
+	return r.db.Unscoped().Where("feed_id = ?", feedID).Delete(&models.Comment{}).Error
 }
 
 func (r *feedMySQLRepository) CreateLike(tx *gorm.DB, like *models.Like) error {

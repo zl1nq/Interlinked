@@ -27,7 +27,7 @@
       <button class="nav-item" :class="{ active: isActive('/notifications') }" @click="router.push('/notifications')">
         <el-icon><Bell /></el-icon>
         <span>通知</span>
-        <span v-if="notificationUnread > 0" class="nav-badge">{{ notificationUnread > 99 ? '99+' : notificationUnread }}</span>
+        <span v-if="notificationStore.unreadCount > 0" class="nav-badge">{{ notificationStore.unreadCount > 99 ? '99+' : notificationStore.unreadCount }}</span>
       </button>
 
       <button class="nav-item" :class="{ active: route.path.startsWith('/profile') }" @click="router.push(`/profile/${userStore.userInfo?.id}`)">
@@ -93,7 +93,7 @@
       <button class="tab-item" :class="{ active: isActive('/notifications') }" @click="router.push('/notifications')">
         <el-icon><Bell /></el-icon>
         <span>通知</span>
-        <span v-if="notificationUnread > 0" class="tab-badge">{{ notificationUnread > 99 ? '99+' : notificationUnread }}</span>
+        <span v-if="notificationStore.unreadCount > 0" class="tab-badge">{{ notificationStore.unreadCount > 99 ? '99+' : notificationStore.unreadCount }}</span>
       </button>
       <button class="tab-item" :class="{ active: route.path.startsWith('/profile') }" @click="router.push(`/profile/${userStore.userInfo?.id}`)">
         <el-icon><User /></el-icon>
@@ -112,14 +112,15 @@
 import { computed, ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import { useNotificationStore } from '../stores/notification'
 import { notificationApi } from '../api'
 import { ElMessageBox } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const notificationStore = useNotificationStore()
 const searchKeyword = ref('')
-const notificationUnread = ref(0)
 const settingsTriggerRef = ref(null)
 const settingsMenuWidth = ref(220)
 
@@ -169,7 +170,7 @@ onMounted(async () => {
 
 watch(() => route.path, async (path) => {
   if (path === '/notifications') {
-    notificationUnread.value = 0
+    notificationStore.setUnreadCount(0)
     return
   }
   await refreshNotificationUnread()
@@ -178,9 +179,9 @@ watch(() => route.path, async (path) => {
 async function refreshNotificationUnread() {
   try {
     const res = await notificationApi.getNotifications(1, 1)
-    notificationUnread.value = Number(res.data.unread_count || 0)
+    notificationStore.setUnreadCount(res.data.unread_count)
   } catch {
-    notificationUnread.value = 0
+    notificationStore.setUnreadCount(0)
   }
 }
 </script>

@@ -454,6 +454,8 @@ func (s *FeedService) buildFeedResponse(feed *models.Feed, currentUserID uint) *
 		if originalFeed, err := s.feedRepo.GetByID(*feed.OriginalID); err == nil { //获取原始动态
 			origResp := s.buildOriginalFeedResponse(originalFeed) //构建原始动态信息
 			resp.OriginalFeed = origResp
+		} else {
+			resp.OriginalDeleted = true // 原帖已被删除或不可见
 		}
 	}
 	if currentUserID > 0 { //判断当前用户ID是否大于0
@@ -540,9 +542,11 @@ func (s *FeedService) buildFeedResponses(feeds []models.Feed, currentUserID uint
 			if orig, ok := originalMap[*feed.OriginalID]; ok {
 				origResp := &models.FeedResponse{ID: orig.ID, UserID: orig.UserID, Content: orig.Content, Images: orig.Images, Videos: orig.Videos, FeedType: orig.FeedType, LikeCount: orig.LikeCount, CommentCount: orig.CommentCount, ShareCount: orig.ShareCount, CreatedAt: orig.CreatedAt} //构建原始动态信息
 				if oa, ok2 := userMap[orig.UserID]; ok2 {
-					origResp.Author = oa.ToResponse() //构建用户信息
+					origResp.Author = oa.ToResponse() //构建原始动态信息作者
 				}
 				resp.OriginalFeed = origResp
+			} else {
+				resp.OriginalDeleted = true // 原帖已被删除或不可见
 			}
 		}
 		responses = append(responses, resp) //添加动态详情
@@ -597,6 +601,10 @@ func (s *FeedService) UnlikeFeed(userID, feedID uint) error {
 		return errors.New("取消点赞失败")
 	}
 	cache.DeleteFeedDetailWithRetry(feedID, 24*time.Hour) //删除动态详情缓存
+	// 撤回对应的点赞通知（fire-and-forget）
+	if feed, feedErr := s.feedRepo.GetByID(feedID); feedErr == nil {
+		s.notificationService.RetractNotification(userID, feed.UserID, feedID, models.NotificationTypeLike)
+	}
 	return nil
 }
 
@@ -688,6 +696,10 @@ func (s *FeedService) DeleteComment(currentUserID, feedID, commentID uint) error
 		return errors.New("删除评论失败")
 	}
 	cache.DeleteFeedDetailWithRetry(feedID, 24*time.Hour) //删除动态详情缓存
+	// 撤回对应的评论通知（fire-and-forget）
+	if feed, feedErr := s.feedRepo.GetByID(feedID); feedErr == nil {
+		s.notificationService.RetractNotification(comment.UserID, feed.UserID, feedID, models.NotificationTypeComment)
+	}
 	return nil
 }
 

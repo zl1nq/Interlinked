@@ -60,7 +60,7 @@ func AddFeedID(id uint) {
 	_ = bloomAdd(bloomFeedKey, id)
 }
 
-// 判断用户ID是否可能存在
+// MightUserExist 判断用户ID是否可能存在
 func MightUserExist(id uint) bool {
 	if id == 0 {
 		return false
@@ -75,7 +75,7 @@ func MightUserExist(id uint) bool {
 	return ok
 }
 
-// 判断动态ID是否可能存在
+// MightFeedExist 判断动态ID是否可能存在
 func MightFeedExist(id uint) bool {
 	if id == 0 {
 		return false
