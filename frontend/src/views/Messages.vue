@@ -1,6 +1,7 @@
 <template>
-  <div class="messages-page card">
-    <div class="messages-sidebar">
+  <div class="messages-page card" :class="{ narrow: isNarrowScreen }">
+    <!-- 会话列表：窄屏列表态全屏，选中会话后隐藏（两级视图） -->
+    <div class="messages-sidebar" v-show="!isNarrowScreen || !selectedTargetId">
       <div class="messages-title">消息</div>
       <div v-if="conversationLoading" class="placeholder">加载中...</div>
       <div v-else-if="conversations.length === 0" class="placeholder">暂无会话</div>
@@ -9,7 +10,7 @@
           v-for="item in conversations"
           :key="item.target_id"
           class="conversation-item"
-          :class="{ active: selectedTargetId === item.target_id }"
+          :class="{ active: !isNarrowScreen && selectedTargetId === item.target_id }"
           @click="selectConversation(item)"
         >
           <el-avatar :size="42" :src="item.user?.avatar || ''" class="clickable-avatar" @click.stop="goToUserProfile(item.user?.id)">
@@ -29,13 +30,25 @@
       </div>
     </div>
 
-    <div class="messages-main">
+    <!-- 聊天区：窄屏聊天态全屏 -->
+    <div class="messages-main" v-show="!isNarrowScreen || !!selectedTargetId">
       <template v-if="selectedTargetId">
         <div class="chat-header">
-          <span>{{ selectedUserName }}</span>
+          <div class="chat-header-left">
+            <button v-if="isNarrowScreen" class="chat-back-btn" type="button" aria-label="返回会话列表" @click="backToConversationList">
+              <el-icon><ArrowLeft /></el-icon>
+            </button>
+            <div v-if="isNarrowScreen" class="chat-peer" @click="goToUserProfile(selectedTargetId)">
+              <el-avatar :size="30" :src="selectedPeerAvatar">
+                {{ selectedUserName?.charAt(0) || 'U' }}
+              </el-avatar>
+            </div>
+            <span class="chat-peer-name" @click="isNarrowScreen && goToUserProfile(selectedTargetId)">{{ selectedUserName }}</span>
+          </div>
           <span class="ws-state" :class="{ online: wsConnected }">{{ wsConnected ? '实时已连接' : '实时重连中...' }}</span>
         </div>
-        <div class="chat-list" ref="chatListRef">
+        <div class="chat-list" ref="chatListRef" @scroll="onChatScroll">
+          <div v-if="loadingHistory" class="history-loading">加载更早的消息...</div>
           <div
             v-for="msg in messages"
             :key="msg.id"
@@ -98,12 +111,36 @@ let ws = null
 let reconnectTimer = null
 let reconnectAttempt = 0
 
+// 窄屏两级视图：列表态 / 聊天态互斥显示
+const narrowQuery = window.matchMedia('(max-width: 960px)')
+const isNarrowScreen = ref(narrowQuery.matches)
+
+function handleNarrowChange(event) {
+  isNarrowScreen.value = event.matches
+}
+
+// 历史消息分页：滚动到顶部加载更早记录
+const historyPage = ref(1)
+const historyHasMore = ref(false)
+const loadingHistory = ref(false)
+
 const pendingReqMap = new Map()
 const pendingMessageMap = new Map()
 const MAX_RECONNECT_DELAY_MS = 30000
 
 const currentUser = computed(() => JSON.parse(sessionStorage.getItem('user') || 'null'))
 const currentUserId = computed(() => currentUser.value?.id || 0)
+
+// 当前聊天对象头像：优先会话列表缓存，回退到消息里的发送者信息
+const selectedPeerAvatar = computed(() => {
+  const conv = conversations.value.find((x) => Number(x.target_id) === Number(selectedTargetId.value))
+  if (conv?.user?.avatar) return conv.user.avatar
+  for (let i = messages.value.length - 1; i >= 0; i -= 1) {
+    const msg = messages.value[i]
+    if (Number(msg.from_user_id) === Number(selectedTargetId.value)) return msg.from_user?.avatar || ''
+  }
+  return ''
+})
 
 function initSelectedTargetFromRoute() {
   const target = Number(route.query.target || route.query.user_id || route.query.to || 0)
@@ -114,11 +151,13 @@ function initSelectedTargetFromRoute() {
 }
 
 onMounted(async () => {
+  narrowQuery.addEventListener('change', handleNarrowChange)
   initSelectedTargetFromRoute()
   await connectWSWithAuth()
 })
 
 onUnmounted(() => {
+  narrowQuery.removeEventListener('change', handleNarrowChange)
   clearReconnectTimer()
   closeWS()
   pendingReqMap.clear()
@@ -235,15 +274,12 @@ function ensureSelectedConversationVisible() {
 
 async function loadMessages(targetId) {
   if (!targetId) return
+  historyPage.value = 1
   try {
-    let res
-    if (wsConnected.value && ws?.readyState === WebSocket.OPEN) {
-      res = await sendWSRequest('message:history', { target_user_id: targetId, page: 1, page_size: 100 })
-    } else {
-      const httpRes = await messageApi.getHistory(targetId, 1, 100)
-      res = httpRes?.data || httpRes
-    }
-    messages.value = (res?.list || []).slice().reverse()
+    const res = await fetchHistory(targetId, 1)
+    const list = res?.list || []
+    messages.value = list.slice().reverse()
+    historyHasMore.value = resolveHasMore(res, list, 1)
     const idx = conversations.value.findIndex((item) => Number(item.target_id) === Number(targetId))
     if (idx >= 0) {
       conversations.value[idx] = { ...conversations.value[idx], unread: 0 }
@@ -253,6 +289,64 @@ async function loadMessages(targetId) {
   } catch (e) {
     ElMessage.error(e?.message || '获取历史消息失败')
   }
+}
+
+// WS 优先，HTTP 兜底拉取历史
+async function fetchHistory(targetId, page) {
+  if (wsConnected.value && ws?.readyState === WebSocket.OPEN) {
+    return sendWSRequest('message:history', { target_user_id: targetId, page, page_size: 100 })
+  }
+  const httpRes = await messageApi.getHistory(targetId, page, 100)
+  return httpRes?.data || httpRes
+}
+
+// has_more 优先取后端字段；未返回时用 total 精确计算，再退化到"拉满一页"近似
+function resolveHasMore(res, list, page) {
+  if (res?.has_more !== undefined) return !!res.has_more
+  const total = Number(res?.total)
+  if (!Number.isNaN(total) && total > 0) return page * 100 < total
+  return list.length >= 100
+}
+
+// 滚动到顶部加载更早的历史，并保持视口停留在原消息位置
+async function loadOlderMessages() {
+  if (!selectedTargetId.value || !historyHasMore.value || loadingHistory.value) return
+  loadingHistory.value = true
+  const el = chatListRef.value
+  const prevHeight = el ? el.scrollHeight : 0
+  try {
+    const page = historyPage.value + 1
+    const res = await fetchHistory(selectedTargetId.value, page)
+    const rawList = res?.list || []
+    if (rawList.length > 0) historyPage.value = page
+    historyHasMore.value = resolveHasMore(res, rawList, page)
+    const older = rawList.slice().reverse()
+    if (older.length > 0) {
+      messages.value = [...older, ...messages.value]
+      await nextTick()
+      if (el) el.scrollTop = el.scrollHeight - prevHeight
+    }
+  } catch (e) {
+    ElMessage.error(e?.message || '获取历史消息失败')
+  } finally {
+    loadingHistory.value = false
+  }
+}
+
+function onChatScroll() {
+  const el = chatListRef.value
+  if (!el || el.scrollTop > 60) return
+  loadOlderMessages()
+}
+
+// 窄屏聊天态返回列表态
+function backToConversationList() {
+  selectedTargetId.value = 0
+  selectedUserName.value = ''
+  messages.value = []
+  historyHasMore.value = false
+  historyPage.value = 1
+  router.replace({ path: '/messages' })
 }
 
 function selectConversation(item) {
@@ -603,6 +697,80 @@ function formatTime(timeStr) {
   flex: 0 0 auto;
 }
 
+.chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.chat-back-btn {
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-pill);
+  flex: 0 0 auto;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.chat-back-btn:hover {
+  background: var(--nav-hover-bg);
+}
+
+.chat-back-btn .el-icon {
+  font-size: 19px;
+}
+
+.chat-peer {
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.chat-peer :deep(.el-avatar) {
+  border-radius: 9px;
+}
+
+.chat-peer-name {
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 窄屏桌面双栏退化为单视图：列表态/聊天态由 v-show 互斥控制 */
+@media (max-width: 960px) {
+  .messages-page {
+    display: block;
+    height: calc(100dvh - 86px - env(safe-area-inset-bottom, 0px));
+    min-height: 0;
+  }
+
+  .messages-page.narrow {
+    padding: 0;
+  }
+
+  .messages-sidebar {
+    height: 100%;
+    border-right: 0;
+  }
+
+  .messages-main {
+    height: 100%;
+  }
+}
+
+.history-loading {
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  padding: 6px 0 10px;
+}
+
 .ws-state { font-size: 12px; color: var(--el-color-danger); font-weight: 500; }
 .ws-state.online { color: #3d9a50; }
 
@@ -675,13 +843,5 @@ function formatTime(timeStr) {
   margin: auto;
   color: var(--text-tertiary);
   font-size: 14px;
-}
-
-/* 移动端：底部 Tab 导航占据视口底部，聊天高度相应收缩 */
-@media (max-width: 960px) {
-  .messages-page {
-    height: calc(100dvh - 86px - env(safe-area-inset-bottom, 0px));
-    min-height: 0;
-  }
 }
 </style>

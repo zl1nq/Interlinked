@@ -12,13 +12,17 @@ import (
 // 约定：service 只依赖接口，不关心具体 ORM 实现。
 type UserRepository interface {
 	CountByUsername(username string) (int64, error)
+	CountByEmail(email string) (int64, error)
 	Create(user *models.User) error
 	GetByUsername(username string) (*models.User, error)
+	GetByEmail(email string) (*models.User, error)
 	GetByID(userID uint) (*models.User, error)
 	IsFollowing(userID, targetUserID uint) (bool, error)
 	Search(keyword string, page, pageSize int) ([]models.User, int64, error)
 	ListByIDs(userIDs []uint) ([]models.User, error)
 	UpdateProfile(userID uint, avatar, bio, nickname *string) (*models.User, error)
+	UpdatePassword(userID uint, hashedPassword string) error
+	UpdateEmail(userID uint, email string) error
 	UpdateBigV(userID uint, isBigV bool) error
 	UpsertVisit(visitorID, targetUserID uint, visitedAt time.Time) error
 	ListRecentVisits(targetUserID uint, page, pageSize int) ([]models.Visit, int64, error)
@@ -38,6 +42,12 @@ func (r *userMySQLRepository) CountByUsername(username string) (int64, error) {
 	return count, err
 }
 
+func (r *userMySQLRepository) CountByEmail(email string) (int64, error) {
+	var count int64
+	err := r.db.Model(&models.User{}).Where("email = ?", email).Count(&count).Error
+	return count, err
+}
+
 func (r *userMySQLRepository) Create(user *models.User) error {
 	return r.db.Create(user).Error
 }
@@ -45,6 +55,14 @@ func (r *userMySQLRepository) Create(user *models.User) error {
 func (r *userMySQLRepository) GetByUsername(username string) (*models.User, error) {
 	var user models.User
 	if err := r.db.Where("username = ?", username).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *userMySQLRepository) GetByEmail(email string) (*models.User, error) {
+	var user models.User
+	if err := r.db.Where("email = ?", email).First(&user).Error; err != nil {
 		return nil, err
 	}
 	return &user, nil
@@ -112,6 +130,22 @@ func (r *userMySQLRepository) UpdateProfile(userID uint, avatar, bio, nickname *
 	}
 
 	return r.GetByID(userID)
+}
+
+// UpdatePassword 更新密码并自增 token_version，一次性完成"改密即吊销旧 token"。
+func (r *userMySQLRepository) UpdatePassword(userID uint, hashedPassword string) error {
+	return r.db.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]any{
+		"password":      hashedPassword,
+		"token_version": gorm.Expr("token_version + 1"),
+	}).Error
+}
+
+// UpdateEmail 更新绑定邮箱并标记为已验证。
+func (r *userMySQLRepository) UpdateEmail(userID uint, email string) error {
+	return r.db.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]any{
+		"email":          email,
+		"email_verified": true,
+	}).Error
 }
 
 func (r *userMySQLRepository) UpdateBigV(userID uint, isBigV bool) error {

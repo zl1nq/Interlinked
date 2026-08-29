@@ -14,6 +14,12 @@ const routes = [
         meta: { requiresAuth: false },
     },
     {
+        path: '/forgot',
+        name: 'ForgotPassword',
+        component: () => import('../views/ForgotPassword.vue'),
+        meta: { requiresAuth: false },
+    },
+    {
         path: '/',
         name: 'Layout',
         component: () => import('../views/Layout.vue'),
@@ -83,7 +89,7 @@ router.beforeEach((to, from, next) => {
 
     if (to.meta.requiresAuth !== false && !token) {
         next('/login')
-    } else if ((to.path === '/login' || to.path === '/register') && token) {
+    } else if ((to.path === '/login' || to.path === '/register' || to.path === '/forgot') && token) {
         next('/')
     } else {
         next()

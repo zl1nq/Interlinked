@@ -51,8 +51,11 @@ func SetupRouter() *gin.Engine {
 		// ==================== 认证相关（无需登录） ====================
 		auth := api.Group("/auth")
 		{
-			auth.POST("/register", middleware.RateLimitByIP("register", rl.RegisterIP.Rate, rl.RegisterIP.Burst), userHandler.Register) //令牌桶限流
-			auth.POST("/login", middleware.RateLimitByIP("login", rl.LoginIP.Rate, rl.LoginIP.Burst), userHandler.Login)                //令牌桶限流
+			auth.POST("/register", middleware.RateLimitByIP("register", rl.RegisterIP.Rate, rl.RegisterIP.Burst), userHandler.Register)         //令牌桶限流
+			auth.POST("/register/confirm", userHandler.RegisterConfirm)                                                                         //注册第二步：验证码确认建号
+			auth.POST("/login", middleware.RateLimitByIP("login", rl.LoginIP.Rate, rl.LoginIP.Burst), userHandler.Login)                        //令牌桶限流
+			auth.POST("/email/code", middleware.RateLimitByIP("send_code", rl.SendCodeIP.Rate, rl.SendCodeIP.Burst), userHandler.SendEmailCode) //验证码发送（注册/找回密码）令牌桶限流
+			auth.POST("/password/reset", userHandler.ResetPassword)                                                                             //忘记密码重置
 		}
 
 		// ==================== 需要登录的路由 ====================
@@ -63,6 +66,10 @@ func SetupRouter() *gin.Engine {
 			authenticated.GET("/users/me", userHandler.GetCurrentUser)
 			authenticated.PUT("/users/me", userHandler.UpdateProfile)
 			authenticated.GET("/users/me/visits", userHandler.GetRecentVisits)
+			authenticated.POST("/users/me/password/code", userHandler.SendChangePasswordCode)  //修改密码验证码
+			authenticated.PUT("/users/me/password", userHandler.ChangePassword)                //修改密码
+			authenticated.POST("/users/me/email/change/code", userHandler.SendChangeEmailCode) //绑定/更换邮箱验证码
+			authenticated.PUT("/users/me/email", userHandler.ChangeEmail)                      //绑定/更换邮箱
 			authenticated.GET("/users/search", userHandler.SearchUsers)
 			authenticated.GET("/users/:id", userHandler.GetProfile)
 

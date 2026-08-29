@@ -2,54 +2,39 @@
   <div class="login-container">
     <div class="login-card">
       <h1 class="login-title"><span class="accent">Inter</span><span class="accent-blue">Linked</span></h1>
-      <p class="login-subtitle">{{ step === 1 ? '创建你的账号' : '验证邮箱' }}</p>
+      <p class="login-subtitle">{{ step === 1 ? '找回密码' : '重置密码' }}</p>
 
       <template v-if="step === 1">
-        <el-form ref="formRef" :model="form" :rules="rules" label-width="0" size="large">
-          <el-form-item prop="username">
-            <el-input v-model="form.username" placeholder="用户名 (3-50个字符)" prefix-icon="User" />
-          </el-form-item>
-          <el-form-item prop="nickname">
-            <el-input v-model="form.nickname" placeholder="昵称" prefix-icon="UserFilled" />
-          </el-form-item>
+        <el-form ref="emailFormRef" :model="emailForm" :rules="emailRules" label-width="0" size="large">
           <el-form-item prop="email">
-            <el-input v-model="form.email" placeholder="邮箱" prefix-icon="Message" />
-          </el-form-item>
-          <el-form-item prop="password">
-            <el-input v-model="form.password" type="password" placeholder="密码 (至少6位)" prefix-icon="Lock" show-password />
-          </el-form-item>
-          <el-form-item prop="confirmPassword">
-            <el-input v-model="form.confirmPassword" type="password" placeholder="确认密码" prefix-icon="Lock" show-password />
+            <el-input v-model="emailForm.email" placeholder="注册时绑定的邮箱" prefix-icon="Message" @keyup.enter="sendCode" />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" class="submit-btn" :loading="loading" style="width: 100%" @click="handleRegister">
-              下一步：验证邮箱
+            <el-button type="primary" class="submit-btn" :loading="sending" style="width: 100%" @click="sendCode">
+              发送验证码
             </el-button>
           </el-form-item>
         </el-form>
-
-        <div class="login-footer">
-          已有账号？ <router-link to="/login" class="link">立即登录</router-link>
-        </div>
       </template>
 
       <template v-else>
         <p class="code-hint">
-          验证码已发送至 <span class="code-email">{{ form.email }}</span>，10 分钟内有效
+          验证码已发送至 <span class="code-email">{{ emailForm.email }}</span>，10 分钟内有效
         </p>
 
-        <el-form size="large" @keyup.enter="handleConfirm">
-          <el-form-item>
-            <el-input
-              v-model="code"
-              placeholder="6 位数字验证码"
-              prefix-icon="Key"
-              maxlength="6"
-            />
+        <el-form ref="resetFormRef" :model="resetForm" :rules="resetRules" label-width="0" size="large">
+          <el-form-item prop="code">
+            <el-input v-model="resetForm.code" placeholder="6 位数字验证码" prefix-icon="Key" maxlength="6" />
+          </el-form-item>
+          <el-form-item prop="newPassword">
+            <el-input v-model="resetForm.newPassword" type="password" placeholder="新密码 (至少6位)" prefix-icon="Lock" show-password />
+          </el-form-item>
+          <el-form-item prop="confirmPassword">
+            <el-input v-model="resetForm.confirmPassword" type="password" placeholder="确认新密码" prefix-icon="Lock" show-password />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" class="submit-btn" :loading="confirming" style="width: 100%" @click="handleConfirm">
-              完成注册
+            <el-button type="primary" class="submit-btn" :loading="resetting" style="width: 100%" @click="handleReset">
+              重置密码
             </el-button>
           </el-form-item>
         </el-form>
@@ -58,9 +43,13 @@
           <el-button text :disabled="countdown > 0" :loading="resending" @click="resendCode">
             {{ countdown > 0 ? `${countdown}s 后可重新发送` : '重新发送验证码' }}
           </el-button>
-          <el-button text @click="backToStep1">返回修改资料</el-button>
+          <el-button text @click="backToEmail">更换邮箱</el-button>
         </div>
       </template>
+
+      <div class="login-footer">
+        想起密码了？ <router-link to="/login" class="link">返回登录</router-link>
+      </div>
     </div>
   </div>
 </template>
@@ -69,58 +58,55 @@
 import { ref, reactive, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { authApi } from '../api'
-import { useUserStore } from '../stores/user'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
-const userStore = useUserStore()
-const formRef = ref(null)
-const loading = ref(false)
 const step = ref(1)
 
-const form = reactive({
-  username: '',
-  nickname: '',
-  email: '',
-  password: '',
+const emailFormRef = ref(null)
+const emailForm = reactive({ email: '' })
+const emailRules = {
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { type: 'email', message: '邮箱格式不正确', trigger: 'blur' },
+  ],
+}
+
+const resetFormRef = ref(null)
+const resetForm = reactive({
+  code: '',
+  newPassword: '',
   confirmPassword: '',
 })
 
-const code = ref('')
-const confirming = ref(false)
-const resending = ref(false)
-const countdown = ref(0)
-let timer = null
-
 const validateConfirmPassword = (rule, value, callback) => {
-  if (value !== form.password) {
+  if (value !== resetForm.newPassword) {
     callback(new Error('两次输入的密码不一致'))
   } else {
     callback()
   }
 }
 
-const rules = {
-  username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 50, message: '用户名长度为3-50个字符', trigger: 'blur' },
+const resetRules = {
+  code: [
+    { required: true, message: '请输入验证码', trigger: 'blur' },
+    { pattern: /^\d{6}$/, message: '验证码为 6 位数字', trigger: 'blur' },
   ],
-  nickname: [
-    { required: true, message: '请输入昵称', trigger: 'blur' },
-  ],
-  email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '邮箱格式不正确', trigger: 'blur' },
-  ],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
     { min: 6, max: 50, message: '密码长度为6-50位', trigger: 'blur' },
   ],
   confirmPassword: [
-    { required: true, message: '请确认密码', trigger: 'blur' },
+    { required: true, message: '请确认新密码', trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' },
   ],
 }
+
+const sending = ref(false)
+const resetting = ref(false)
+const resending = ref(false)
+const countdown = ref(0)
+let timer = null
 
 function startCountdown(seconds = 60) {
   countdown.value = seconds
@@ -135,50 +121,26 @@ onUnmounted(() => {
   clearInterval(timer)
 })
 
-// 第一步：提交资料，服务端暂存并发送验证码（不创建账号）
-async function handleRegister() {
+// 防账号枚举：无论邮箱是否注册，接口都返回成功，前端不做存在性预判
+async function sendCode() {
   try {
-    await formRef.value.validate()
-    loading.value = true
-    await authApi.register({
-      username: form.username.trim(),
-      nickname: form.nickname.trim(),
-      email: form.email.trim(),
-      password: form.password,
-    })
+    await emailFormRef.value.validate()
+    sending.value = true
+    await authApi.sendEmailCode({ scene: 'forgot_password', email: emailForm.email.trim() })
     ElMessage.success('验证码已发送，请查收邮箱')
     step.value = 2
     startCountdown()
   } catch (e) {
-    // error handled by interceptor
+    // error handled by interceptor / validation
   } finally {
-    loading.value = false
-  }
-}
-
-// 第二步：验证码确认建号，成功即自动登录
-async function handleConfirm() {
-  if (!/^\d{6}$/.test(code.value)) {
-    ElMessage.warning('请输入 6 位数字验证码')
-    return
-  }
-
-  confirming.value = true
-  try {
-    await userStore.registerConfirm(form.email.trim(), code.value)
-    ElMessage.success('注册成功')
-    router.push('/')
-  } catch (e) {
-    // 验证码错误不影响暂存资料，停留在当前步骤
-  } finally {
-    confirming.value = false
+    sending.value = false
   }
 }
 
 async function resendCode() {
   resending.value = true
   try {
-    await authApi.sendEmailCode({ scene: 'register', email: form.email.trim() })
+    await authApi.sendEmailCode({ scene: 'forgot_password', email: emailForm.email.trim() })
     ElMessage.success('验证码已重新发送')
     startCountdown()
   } catch (e) {
@@ -188,9 +150,26 @@ async function resendCode() {
   }
 }
 
-function backToStep1() {
+async function handleReset() {
+  try {
+    await resetFormRef.value.validate()
+    resetting.value = true
+    await authApi.resetPassword({
+      email: emailForm.email.trim(),
+      code: resetForm.code.trim(),
+      new_password: resetForm.newPassword,
+    })
+    ElMessage.success('密码重置成功，请使用新密码登录')
+    router.push('/login')
+  } catch (e) {
+    // error handled by interceptor / validation
+  } finally {
+    resetting.value = false
+  }
+}
+
+function backToEmail() {
   step.value = 1
-  code.value = ''
   clearInterval(timer)
   countdown.value = 0
 }
@@ -316,6 +295,7 @@ function backToStep1() {
 }
 
 .login-footer {
+  margin-top: 18px;
   text-align: center;
   color: var(--text-tertiary);
   font-size: 14px;
@@ -346,7 +326,7 @@ function backToStep1() {
 }
 
 .step2-actions {
-  margin-top: 6px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;

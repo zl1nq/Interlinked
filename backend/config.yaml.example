@@ -89,6 +89,9 @@ rate_limit:
   register_ip:
     rate: 0.2
     burst: 100
+  send_code_ip:
+    rate: 0.1
+    burst: 10
   publish_feed:
     rate: 0.2
     burst: 100
@@ -104,3 +107,22 @@ rate_limit:
   send_message:
     rate: 0.8
     burst: 400
+
+email:
+  # debug=true 时不连接 SMTP，验证码打印到服务端控制台
+  debug: true
+  host: smtp.example.com # 修改你的 SMTP 服务器地址，例如 smtp.qq.com
+  port: 465
+  username: noreply@example.com # 修改你的邮箱账号
+  password: smtp-password # 修改为你的邮箱密码，或者使用授权码，推荐使用授权码
+  from: "Interlinked <noreply@example.com>"
+  # 验证码有效期（分钟）
+  code_ttl_min: 10
+  # 单个验证码最大错误尝试次数
+  code_max_attempts: 5
+  # 同一场景同一邮箱发送冷却（秒）
+  send_cooldown_sec: 60
+  # 同一场景同一邮箱每日发送上限
+  daily_limit: 10
+  # 注册待激活资料在 Redis 的暂存时长（分钟）
+  pending_ttl_min: 30

@@ -9,19 +9,22 @@ import (
 
 // Claims 定义 JWT 载荷字段。
 // 仅放鉴权必需信息，避免放敏感业务数据。
+// Ver 为签发时的 token 版本：与 users.token_version 不一致即视为已吊销。
 type Claims struct {
 	UserID   uint   `json:"user_id"`
 	Username string `json:"username"`
+	Ver      int    `json:"ver,omitempty"`
 	Scope    string `json:"scope,omitempty"`
 	jwt.RegisteredClaims
 }
 
 // GenerateToken 生成登录 JWT Token。
-func GenerateToken(userID uint, username string) (string, error) {
+func GenerateToken(userID uint, username string, tokenVersion int) (string, error) {
 	expireHours := config.AppConfig.JWT.Expire
 	claims := Claims{
 		UserID:   userID,
 		Username: username,
+		Ver:      tokenVersion,
 		Scope:    "api",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(expireHours) * time.Hour)), //过期时间

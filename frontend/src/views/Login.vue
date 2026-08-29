@@ -20,6 +20,8 @@
 
       <div class="login-footer">
         还没有账号？ <router-link to="/register" class="link">立即注册</router-link>
+        <span class="footer-divider">·</span>
+        <router-link to="/forgot" class="link">忘记密码？</router-link>
       </div>
     </div>
   </div>
@@ -184,6 +186,11 @@ async function handleLogin() {
   text-align: center;
   color: var(--text-tertiary);
   font-size: 14px;
+}
+
+.footer-divider {
+  margin: 0 8px;
+  color: var(--text-tertiary);
 }
 
 .link {

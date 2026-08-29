@@ -174,7 +174,10 @@ a {
   background: transparent;
 }
 
-/* 页面入场：路由切换时内容轻微上浮淡入 */
+/* 页面入场：路由切换时内容轻微上浮淡入
+   注意终态必须是 transform:none：fill-mode:both 会永久保留终帧，
+   若终帧残留 translateY(0)，transform 会把页面变成 fixed 弹层的包含块，
+   导致 drawer/dialog 遮罩与面板相对页面而非视口定位 */
 @keyframes page-enter {
   from {
     opacity: 0;
@@ -182,7 +185,7 @@ a {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 

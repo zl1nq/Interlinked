@@ -7,7 +7,20 @@ import request from './request'
 // ==================== 认证相关 ====================
 export const authApi = {
     register(data) {
+        // 两段式注册第一步：暂存资料并发送邮箱验证码，不创建账号
         return request.post('/auth/register', data)
+    },
+    confirmRegister(data) {
+        // 两段式注册第二步：{ email, code }，成功返回与登录一致的 token + user
+        return request.post('/auth/register/confirm', data)
+    },
+    sendEmailCode(data) {
+        // { scene: 'register' | 'forgot_password', email }
+        return request.post('/auth/email/code', data)
+    },
+    resetPassword(data) {
+        // { email, code, new_password }，成功后该用户所有 token 失效
+        return request.post('/auth/password/reset', data)
     },
     login(data) {
         return request.post('/auth/login', data)
@@ -21,6 +34,22 @@ export const userApi = {
     },
     updateProfile(data) {
         return request.put('/users/me', data)
+    },
+    sendPasswordChangeCode() {
+        // 向当前登录用户已验证的邮箱发送修改密码验证码，邮箱由服务端会话推导
+        return request.post('/users/me/password/code')
+    },
+    updatePassword(data) {
+        // { old_password, new_password, code }，成功后包括当前设备的所有 token 立即失效
+        return request.put('/users/me/password', data)
+    },
+    sendEmailChangeCode(data) {
+        // { new_email, password? }，向新邮箱发码（场景 change_email）；已验证邮箱的用户必须带当前密码
+        return request.post('/users/me/email/change/code', data)
+    },
+    updateEmail(data) {
+        // { new_email, code, password? }，成功返回更新后的用户信息；不吊销 token
+        return request.put('/users/me/email', data)
     },
     getUserProfile(id) {
         return request.get(`/users/${id}`)

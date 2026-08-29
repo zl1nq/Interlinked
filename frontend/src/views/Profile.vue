@@ -2,8 +2,13 @@
   <div class="profile-page" v-if="user">
     <section class="profile-hero">
       <div class="hero-main card">
+        <!-- 窄屏账号管理入口：桌面隐藏，桌面由侧导航下拉承担 -->
+        <button v-if="isMe" class="hero-gear-btn" type="button" aria-label="账号管理" @click="settingsSheetVisible = true">
+          <el-icon><Setting /></el-icon>
+        </button>
+
         <div class="hero-top">
-          <el-avatar :size="170" :src="user.avatar || ''" class="hero-avatar">
+          <el-avatar :size="isNarrowScreen ? 110 : 170" :src="user.avatar || ''" class="hero-avatar">
             {{ user.nickname?.charAt(0) || 'U' }}
           </el-avatar>
 
@@ -14,12 +19,16 @@
                   <span class="nickname">{{ user.nickname }}</span>
                   <el-tag v-if="user.is_big_v" effect="dark" type="warning" round>认证</el-tag>
                 </h1>
-                <el-button v-if="isMe" plain round @click="openProfileEditDialog">编辑信息</el-button>
+                <div class="hero-name-actions" v-if="isMe">
+                  <el-button plain round @click="openProfileEditDialog">编辑信息</el-button>
+                  <el-button class="desktop-action" plain round @click="openPasswordDialog">修改密码</el-button>
+                  <el-button class="desktop-action" plain round @click="openEmailDialog">{{ emailMode === 'change' ? '更换邮箱' : '绑定邮箱' }}</el-button>
+                </div>
               </div>
               <p class="username">Feed号：{{ user.username }}</p>
             </div>
-        <p class="bio" v-if="user.bio">{{ user.bio }}</p>
-        <p class="bio bio-empty" v-else>还没有简介，快来认识一下 TA 吧</p>
+            <p class="bio" v-if="user.bio">{{ user.bio }}</p>
+            <p class="bio bio-empty" v-else>还没有简介，快来认识一下 TA 吧</p>
 
             <div class="hero-stats" :class="{ 'hero-stats-three': !isMe }">
               <div class="stat-item">
@@ -96,14 +105,32 @@
       </div>
     </section>
 
-    <!-- 移动端设置入口：仅本人可见，桌面端由侧导航下拉承担 -->
-    <section v-if="isMe" class="mobile-settings card">
-      <div class="settings-title">设置</div>
-      <button class="logout-row" type="button" @click="confirmLogout">
-        <el-icon><SwitchButton /></el-icon>
-        <span>退出登录</span>
-      </button>
-    </section>
+    <!-- 窄屏账号管理：底部动作面板，避免被长帖子列表压到底部 -->
+    <el-drawer
+      v-model="settingsSheetVisible"
+      direction="btt"
+      size="320px"
+      :with-header="false"
+      append-to-body
+      class="settings-sheet"
+    >
+      <div class="sheet-wrap">
+        <div class="sheet-title">账号管理</div>
+        <button class="sheet-row" type="button" @click="openSheetItem(openPasswordDialog)">
+          <el-icon><Lock /></el-icon>
+          <span>修改密码</span>
+        </button>
+        <button class="sheet-row" type="button" @click="openSheetItem(openEmailDialog)">
+          <el-icon><Message /></el-icon>
+          <span>{{ emailMode === 'change' ? '更换邮箱' : '绑定邮箱' }}</span>
+        </button>
+        <button class="sheet-row danger" type="button" @click="openSheetItem(confirmLogout)">
+          <el-icon><SwitchButton /></el-icon>
+          <span>退出登录</span>
+        </button>
+        <button class="sheet-row cancel" type="button" @click="settingsSheetVisible = false">取消</button>
+      </div>
+    </el-drawer>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px">
       <div v-if="dialogUsers.length === 0" class="text-center">
@@ -160,6 +187,66 @@
         <el-button type="primary" :loading="profileSaving" @click="saveProfile">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="passwordDialogVisible" title="修改密码" width="480px" @closed="resetPasswordDialog">
+      <el-form ref="passwordFormRef" :model="passwordForm" :rules="passwordRules" label-width="0" size="large">
+        <el-form-item prop="oldPassword">
+          <el-input v-model="passwordForm.oldPassword" type="password" placeholder="当前密码" prefix-icon="Lock" show-password />
+        </el-form-item>
+        <el-form-item prop="newPassword">
+          <el-input v-model="passwordForm.newPassword" type="password" placeholder="新密码 (至少6位)" prefix-icon="Lock" show-password />
+        </el-form-item>
+        <el-form-item prop="confirmPassword">
+          <el-input v-model="passwordForm.confirmPassword" type="password" placeholder="确认新密码" prefix-icon="Lock" show-password />
+        </el-form-item>
+        <el-form-item prop="code">
+          <div class="code-input-row">
+            <el-input v-model="passwordForm.code" placeholder="6 位数字验证码" prefix-icon="Key" maxlength="6" />
+            <el-button class="code-send-btn" :disabled="pwdCountdown > 0" :loading="pwdCodeSending" @click="sendPasswordCode">
+              {{ pwdCountdown > 0 ? `${pwdCountdown}s` : '发送验证码' }}
+            </el-button>
+          </div>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="passwordDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="passwordSubmitting" @click="handleChangePassword">确认修改</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="emailDialogVisible" :title="emailMode === 'change' ? '更换邮箱' : '绑定邮箱'" width="480px" @closed="resetEmailDialog">
+      <div class="current-email-line">
+        <template v-if="emailMode === 'change'">
+          当前邮箱：<span class="current-email">{{ currentUserEmail }}</span>
+        </template>
+        <template v-else>当前账号尚未绑定邮箱，绑定后可用于找回密码</template>
+      </div>
+
+      <el-form ref="emailFormRef" :model="emailForm" :rules="emailFormRules" label-width="0" size="large">
+        <el-form-item prop="newEmail">
+          <el-input v-model="emailForm.newEmail" placeholder="新邮箱" prefix-icon="Message" />
+        </el-form-item>
+        <el-form-item v-if="emailMode === 'change'" prop="password">
+          <el-input v-model="emailForm.password" type="password" placeholder="当前密码" prefix-icon="Lock" show-password />
+        </el-form-item>
+        <el-form-item prop="code">
+          <div class="code-input-row">
+            <el-input v-model="emailForm.code" placeholder="6 位数字验证码" prefix-icon="Key" maxlength="6" />
+            <el-button class="code-send-btn" :disabled="emailCodeCountdown > 0" :loading="emailCodeSending" @click="sendEmailChangeCode">
+              {{ emailCodeCountdown > 0 ? `${emailCodeCountdown}s` : '发送验证码' }}
+            </el-button>
+          </div>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="emailDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="emailSubmitting" @click="handleUpdateEmail">
+          {{ emailMode === 'change' ? '确认更换' : '确认绑定' }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 
   <div v-else class="text-center mt-20">
@@ -168,7 +255,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { userApi, followApi, feedApi, uploadApi } from '../api'
@@ -203,8 +290,29 @@ const visitTotal = ref(0)
 
 const isMe = computed(() => userStore.userInfo?.id === user.value?.id)
 
+// 窄屏形态：头像缩小、hero 齿轮入口（与底部 Tab 导航同一断点）
+const narrowQuery = window.matchMedia('(max-width: 960px)')
+const isNarrowScreen = ref(narrowQuery.matches)
+
+function handleNarrowChange(event) {
+  isNarrowScreen.value = event.matches
+}
+
+// 窄屏账号管理动作面板
+const settingsSheetVisible = ref(false)
+
+function openSheetItem(action) {
+  settingsSheetVisible.value = false
+  action()
+}
+
 onMounted(() => {
+  narrowQuery.addEventListener('change', handleNarrowChange)
   loadProfile()
+})
+
+onUnmounted(() => {
+  narrowQuery.removeEventListener('change', handleNarrowChange)
 })
 
 watch(() => route.params.id, () => {
@@ -424,6 +532,233 @@ function confirmLogout() {
   }).catch(() => {})
 }
 
+// ==================== 修改密码 ====================
+const passwordDialogVisible = ref(false)
+const passwordFormRef = ref(null)
+const passwordSubmitting = ref(false)
+const pwdCodeSending = ref(false)
+const pwdCountdown = ref(0)
+let pwdCodeTimer = null
+
+const passwordForm = reactive({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+  code: '',
+})
+
+const validatePwdConfirm = (rule, value, callback) => {
+  if (value !== passwordForm.newPassword) {
+    callback(new Error('两次输入的密码不一致'))
+  } else {
+    callback()
+  }
+}
+
+const validateNewPwdDiff = (rule, value, callback) => {
+  if (passwordForm.oldPassword && value === passwordForm.oldPassword) {
+    callback(new Error('新密码不能与当前密码相同'))
+  } else {
+    callback()
+  }
+}
+
+const passwordRules = {
+  oldPassword: [{ required: true, message: '请输入当前密码', trigger: 'blur' }],
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, max: 50, message: '密码长度为6-50位', trigger: 'blur' },
+    { validator: validateNewPwdDiff, trigger: 'blur' },
+  ],
+  confirmPassword: [
+    { required: true, message: '请确认新密码', trigger: 'blur' },
+    { validator: validatePwdConfirm, trigger: 'blur' },
+  ],
+  code: [
+    { required: true, message: '请输入验证码', trigger: 'blur' },
+    { pattern: /^\d{6}$/, message: '验证码为 6 位数字', trigger: 'blur' },
+  ],
+}
+
+function openPasswordDialog() {
+  passwordForm.oldPassword = ''
+  passwordForm.newPassword = ''
+  passwordForm.confirmPassword = ''
+  passwordForm.code = ''
+  passwordDialogVisible.value = true
+}
+
+function resetPasswordDialog() {
+  passwordFormRef.value?.clearValidate()
+}
+
+function startPwdCountdown(seconds = 60) {
+  pwdCountdown.value = seconds
+  clearInterval(pwdCodeTimer)
+  pwdCodeTimer = setInterval(() => {
+    pwdCountdown.value -= 1
+    if (pwdCountdown.value <= 0) clearInterval(pwdCodeTimer)
+  }, 1000)
+}
+
+onUnmounted(() => {
+  clearInterval(pwdCodeTimer)
+  clearInterval(emailCodeTimer)
+})
+
+// 验证码发往当前账号已验证的邮箱，邮箱由服务端会话推导
+async function sendPasswordCode() {
+  pwdCodeSending.value = true
+  try {
+    await userApi.sendPasswordChangeCode()
+    ElMessage.success('验证码已发送，请查收邮箱')
+    startPwdCountdown()
+  } catch (e) {
+    // error handled by interceptor（未绑定邮箱等）
+  } finally {
+    pwdCodeSending.value = false
+  }
+}
+
+// 修改成功后服务端使所有旧 token 失效，前端主动登出回登录页
+async function handleChangePassword() {
+  try {
+    await passwordFormRef.value.validate()
+    passwordSubmitting.value = true
+    await userApi.updatePassword({
+      old_password: passwordForm.oldPassword,
+      new_password: passwordForm.newPassword,
+      code: passwordForm.code.trim(),
+    })
+    clearInterval(pwdCodeTimer)
+    passwordDialogVisible.value = false
+    ElMessage.success('密码修改成功，请重新登录')
+    userStore.logout()
+    router.push('/login')
+  } catch (e) {
+    // error handled by interceptor / validation
+  } finally {
+    passwordSubmitting.value = false
+  }
+}
+
+// ==================== 绑定 / 更换邮箱 ====================
+const emailDialogVisible = ref(false)
+const emailFormRef = ref(null)
+const emailSubmitting = ref(false)
+const emailCodeSending = ref(false)
+const emailCodeCountdown = ref(0)
+let emailCodeTimer = null
+
+// email_verified=true → 更换形态（需要当前密码）；否则为绑定形态（不提交 password）
+const emailMode = computed(() => (userStore.userInfo?.email_verified ? 'change' : 'bind'))
+const currentUserEmail = computed(() => userStore.userInfo?.email || '未绑定')
+
+const emailForm = reactive({
+  newEmail: '',
+  password: '',
+  code: '',
+})
+
+const validateNewEmailDiff = (rule, value, callback) => {
+  if (emailMode.value === 'change' && userStore.userInfo?.email && value.trim() === userStore.userInfo.email) {
+    callback(new Error('新邮箱与当前邮箱相同'))
+  } else {
+    callback()
+  }
+}
+
+const emailFormRules = computed(() => ({
+  newEmail: [
+    { required: true, message: '请输入新邮箱', trigger: 'blur' },
+    { type: 'email', message: '邮箱格式不正确', trigger: 'blur' },
+    { validator: validateNewEmailDiff, trigger: 'blur' },
+  ],
+  ...(emailMode.value === 'change'
+    ? { password: [{ required: true, message: '请输入当前密码', trigger: 'blur' }] }
+    : {}),
+  code: [
+    { required: true, message: '请输入验证码', trigger: 'blur' },
+    { pattern: /^\d{6}$/, message: '验证码为 6 位数字', trigger: 'blur' },
+  ],
+}))
+
+function openEmailDialog() {
+  emailForm.newEmail = ''
+  emailForm.password = ''
+  emailForm.code = ''
+  emailDialogVisible.value = true
+}
+
+function resetEmailDialog() {
+  emailFormRef.value?.clearValidate()
+}
+
+function startEmailCountdown(seconds = 60) {
+  emailCodeCountdown.value = seconds
+  clearInterval(emailCodeTimer)
+  emailCodeTimer = setInterval(() => {
+    emailCodeCountdown.value -= 1
+    if (emailCodeCountdown.value <= 0) clearInterval(emailCodeTimer)
+  }, 1000)
+}
+
+// 密码在发码与确认两步都要提交，防 session 劫持后连邮箱一起换掉
+function buildEmailPayload() {
+  const payload = { new_email: emailForm.newEmail.trim() }
+  if (emailMode.value === 'change') payload.password = emailForm.password
+  return payload
+}
+
+async function sendEmailChangeCode() {
+  try {
+    const fields = emailMode.value === 'change' ? ['newEmail', 'password'] : ['newEmail']
+    await emailFormRef.value.validateField(fields)
+  } catch (e) {
+    return
+  }
+
+  emailCodeSending.value = true
+  try {
+    await userApi.sendEmailChangeCode(buildEmailPayload())
+    ElMessage.success('验证码已发送，请查收新邮箱')
+    startEmailCountdown()
+  } catch (e) {
+    // error handled by interceptor（邮箱被占用 / 密码错误 / 限流等）
+  } finally {
+    emailCodeSending.value = false
+  }
+}
+
+// 绑定/更换成功不吊销 token，本地直接用响应更新用户信息，无需重新登录
+async function handleUpdateEmail() {
+  try {
+    await emailFormRef.value.validate()
+    emailSubmitting.value = true
+    const res = await userApi.updateEmail({ ...buildEmailPayload(), code: emailForm.code.trim() })
+
+    if (res.data) {
+      userStore.userInfo = { ...(userStore.userInfo || {}), ...res.data }
+      sessionStorage.setItem('user', JSON.stringify(userStore.userInfo))
+      if (user.value && Number(user.value.id) === Number(userStore.userInfo.id)) {
+        user.value = {
+          ...user.value,
+          email: res.data.email,
+          email_verified: res.data.email_verified,
+        }
+      }
+    }
+
+    clearInterval(emailCodeTimer)
+    emailDialogVisible.value = false
+    ElMessage.success(emailMode.value === 'change' ? '邮箱更换成功' : '邮箱绑定成功')
+  } catch (e) {
+    // error handled by interceptor / validation
+  } finally {
+    emailSubmitting.value = false
+  }
+}
+
 function goToChat() {
   if (!user.value?.id) return
   router.push({ path: '/messages', query: { target: user.value.id, name: user.value.nickname || user.value.username || '私信' } })
@@ -476,6 +811,13 @@ function goToFeedDetail(feedId) {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.hero-name-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
 }
 
 .nickname-row {
@@ -592,42 +934,155 @@ function goToFeedDetail(feedId) {
   gap: 10px;
 }
 
-/* 移动端设置入口：默认隐藏，仅 ≤960px 显示 */
-.mobile-settings {
+/* 移动端账号管理齿轮：默认隐藏，仅 ≤960px 显示 */
+.hero-gear-btn {
   display: none;
 }
 
+.hero-main {
+  position: relative;
+}
+
+/* 桌面专属操作按钮：窄屏隐藏，管理项收进底部动作面板 */
 @media (max-width: 960px) {
-  .mobile-settings {
-    display: block;
+  .desktop-action {
+    display: none;
+  }
+
+  .hero-gear-btn {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    top: 16px;
+    right: 14px;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-pill);
+    background: var(--surface-sunken);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  }
+
+  .hero-gear-btn:hover {
+    background: var(--nav-hover-bg);
+    color: var(--text-primary);
+  }
+
+  .hero-gear-btn .el-icon {
+    font-size: 18px;
+  }
+
+  .hero-main {
+    padding: 20px 18px;
+  }
+
+  .hero-top {
+    gap: 14px;
+  }
+
+  .hero-name-line {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .nickname {
+    font-size: 22px;
+  }
+
+  .hero-stats {
+    gap: 8px;
+  }
+
+  .stat-item {
+    min-width: 70px;
+    padding: 10px 10px 9px;
+  }
+
+  .stat-value {
+    font-size: 17px;
   }
 }
 
-.settings-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 10px;
+/* 账号管理底部动作面板 */
+.sheet-wrap {
+  padding: 6px 14px calc(16px + env(safe-area-inset-bottom, 0px));
 }
 
-.logout-row {
+.sheet-title {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  padding: 8px 0 6px;
+}
+
+.sheet-row {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 14px 14px;
   border: 0;
+  background: transparent;
   border-radius: var(--r-md);
-  background: var(--surface-sunken);
-  color: var(--el-color-danger);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
+  color: var(--text-primary);
   cursor: pointer;
   transition: background var(--dur-fast) var(--ease);
 }
 
-.logout-row:hover {
-  background: var(--accent-soft);
+.sheet-row:hover {
+  background: var(--nav-hover-bg);
+}
+
+.sheet-row .el-icon {
+  font-size: 17px;
+  color: var(--text-secondary);
+}
+
+.sheet-row.danger {
+  color: var(--el-color-danger);
+}
+
+.sheet-row.danger .el-icon {
+  color: var(--el-color-danger);
+}
+
+.sheet-row.cancel {
+  justify-content: center;
+  margin-top: 4px;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.code-input-row {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+}
+
+.code-send-btn {
+  flex: 0 0 auto;
+  min-width: 108px;
+  border-radius: var(--r-md);
+  font-weight: 600;
+}
+
+.current-email-line {
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  line-height: 1.6;
+}
+
+.current-email {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .edit-avatar-row {
@@ -686,36 +1141,15 @@ function goToFeedDetail(feedId) {
   margin-top: 2px;
 }
 
-@media (max-width: 768px) {
-  .hero-main {
-    padding: 20px 18px;
-  }
-
-  .hero-top {
-    gap: 14px;
-  }
-
-  .hero-name-line {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .nickname {
-    font-size: 23px;
-  }
-
+@media (max-width: 480px) {
   .hero-stats {
-    gap: 8px;
+    gap: 6px;
   }
 
   .stat-item {
-    min-width: 76px;
-    padding: 10px 10px 9px;
-  }
-
-  .stat-value {
-    font-size: 17px;
+    min-width: 0;
+    flex: 1 1 40%;
+    padding: 10px 6px 9px;
   }
 }
 </style>

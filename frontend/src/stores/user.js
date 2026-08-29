@@ -17,8 +17,9 @@ export const useUserStore = defineStore('user', () => {
         return res
     }
 
-    async function register(username, password, nickname) {
-        const res = await authApi.register({ username, password, nickname })
+    // 两段式注册第二步：验证码确认建号，成功即自动登录
+    async function registerConfirm(email, code) {
+        const res = await authApi.confirmRegister({ email, code })
         token.value = res.data.token
         userInfo.value = res.data.user
         sessionStorage.setItem('token', res.data.token)
@@ -48,7 +49,7 @@ export const useUserStore = defineStore('user', () => {
         userInfo,
         isLoggedIn,
         login,
-        register,
+        registerConfirm,
         logout,
         fetchCurrentUser,
     }

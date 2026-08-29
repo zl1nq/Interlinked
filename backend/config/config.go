@@ -24,6 +24,23 @@ type Config struct {
 	WS        WSConfig        `mapstructure:"ws"`
 	CORS      CORSConfig      `mapstructure:"cors"`
 	Outbox    OutboxConfig    `mapstructure:"outbox"`
+	Email     EmailConfig     `mapstructure:"email"`
+}
+
+// EmailConfig 邮箱验证码与 SMTP 发送配置。
+// debug=true 时不真正连接 SMTP，验证码仅打印到控制台，方便本地联调。
+type EmailConfig struct {
+	Debug           bool   `mapstructure:"debug"`
+	Host            string `mapstructure:"host"`
+	Port            int    `mapstructure:"port"`
+	Username        string `mapstructure:"username"`
+	Password        string `mapstructure:"password"`
+	From            string `mapstructure:"from"`
+	CodeTTLMin      int    `mapstructure:"code_ttl_min"`
+	CodeMaxAttempts int    `mapstructure:"code_max_attempts"`
+	SendCooldownSec int    `mapstructure:"send_cooldown_sec"`
+	DailyLimit      int    `mapstructure:"daily_limit"`
+	PendingTTLMin   int    `mapstructure:"pending_ttl_min"`
 }
 
 type ServerConfig struct {
@@ -97,6 +114,7 @@ type RateLimitConfig struct {
 	LikeFeed    TokenBucketConfig `mapstructure:"like_feed"`
 	CommentFeed TokenBucketConfig `mapstructure:"comment_feed"`
 	SendMessage TokenBucketConfig `mapstructure:"send_message"`
+	SendCodeIP  TokenBucketConfig `mapstructure:"send_code_ip"`
 }
 
 // WSConfig WebSocket 限流配置。
@@ -168,6 +186,28 @@ func setDefaults(cfg *Config) {
 	if cfg.Outbox.MaxBackoffMS <= 0 {
 		cfg.Outbox.MaxBackoffMS = 300000
 	}
+	setEmailDefaults(&cfg.Email)
+}
+
+func setEmailDefaults(c *EmailConfig) {
+	if c.Port <= 0 {
+		c.Port = 465
+	}
+	if c.CodeTTLMin <= 0 {
+		c.CodeTTLMin = 10
+	}
+	if c.CodeMaxAttempts <= 0 {
+		c.CodeMaxAttempts = 5
+	}
+	if c.SendCooldownSec <= 0 {
+		c.SendCooldownSec = 60
+	}
+	if c.DailyLimit <= 0 {
+		c.DailyLimit = 10
+	}
+	if c.PendingTTLMin <= 0 {
+		c.PendingTTLMin = 30
+	}
 }
 
 func setRateLimitDefaults(c *RateLimitConfig) {
@@ -178,6 +218,7 @@ func setRateLimitDefaults(c *RateLimitConfig) {
 	setTokenBucketDefault(&c.LikeFeed, 2, 60)
 	setTokenBucketDefault(&c.CommentFeed, 0.6, 30)
 	setTokenBucketDefault(&c.SendMessage, 0.8, 40)
+	setTokenBucketDefault(&c.SendCodeIP, 0.1, 10)
 }
 
 func setTokenBucketDefault(c *TokenBucketConfig, rate float64, burst int) {

@@ -67,6 +67,7 @@ backend/uploads/
 *.pid
 *.seed
 
+note
 note/study.md
 note/面经.md
 note/面试题.md
@@ -76,3 +77,4 @@ pic
 digest
 build
 .zcode
+docs
