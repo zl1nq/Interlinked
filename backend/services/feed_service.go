@@ -645,13 +645,44 @@ func (s *FeedService) GetFeedLikers(feedID uint, page, pageSize int) ([]models.L
 	return result, total, nil //返回点赞者
 }
 
-// CommentFeed 发布评论，并失效动态详情缓存，保证评论数及时刷新。
-func (s *FeedService) CommentFeed(userID, feedID uint, content string) (*models.Comment, error) {
+// CommentRequest 发表评论请求。
+// parent_id 省略或 0 = 发根评论；指向根评论或楼内回复均可，root_id 与 reply_to 三元组由服务端推导。
+type CommentRequest struct {
+	Content  string `json:"content" binding:"required,min=1,max=500"`
+	ParentID uint   `json:"parent_id"`
+}
+
+// CommentFeed 发表评论/楼内回复：
+// - 根评论：通知动态作者（type=comment，沿用既有行为）；
+// - 楼内回复：通知被回复者（type=reply），被回复者是自己则不发。
+func (s *FeedService) CommentFeed(userID, feedID uint, req *CommentRequest) (*models.CommentResponse, error) {
 	if _, err := s.feedRepo.GetByID(feedID); err != nil { //获取动态
 		return nil, errors.New("动态不存在")
 	}
+
+	comment := &models.Comment{UserID: userID, FeedID: feedID, Content: req.Content}
+	if req.ParentID > 0 {
+		parent, err := s.feedRepo.GetCommentByIDAndFeedID(req.ParentID, feedID) //被回复的评论必须存在且属于同一动态
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, errors.New("回复的评论不存在")
+			}
+			return nil, err
+		}
+		comment.ReplyToCommentID = parent.ID
+		comment.ReplyToUserID = parent.UserID
+		// 昵称快照取被回复者当前昵称，落库后不受改名影响
+		if parentUser, uErr := s.userRepo.GetByID(parent.UserID); uErr == nil {
+			comment.ReplyToNickname = parentUser.Nickname
+		}
+		if parent.RootID == 0 {
+			comment.RootID = parent.ID //回复根评论
+		} else {
+			comment.RootID = parent.RootID //回复楼内回复，挂到同一层楼
+		}
+	}
+
 	tx := s.feedRepo.BeginTx() //开始事务
-	comment := &models.Comment{UserID: userID, FeedID: feedID, Content: content}
 	if err := s.feedRepo.CreateComment(tx, comment); err != nil {
 		tx.Rollback() //回滚
 		return nil, errors.New("评论失败")
@@ -664,13 +695,22 @@ func (s *FeedService) CommentFeed(userID, feedID uint, content string) (*models.
 		return nil, errors.New("评论失败")
 	}
 	cache.DeleteFeedDetailWithRetry(feedID, 24*time.Hour) //删除动态详情缓存
-	if feed, err := s.feedRepo.GetByID(feedID); err == nil {
-		s.notificationService.CreateCommentNotification(userID, feed.UserID, feedID, content) //创建评论通知
+
+	// 通知编排：根评论→动态作者；楼内回复→被回复者（自己回复自己不发）
+	if comment.RootID == 0 {
+		if feed, feedErr := s.feedRepo.GetByID(feedID); feedErr == nil {
+			s.notificationService.CreateCommentNotification(userID, feed.UserID, feedID, comment.Content) //创建评论通知
+		}
+	} else if comment.ReplyToUserID != userID {
+		s.notificationService.CreateReplyNotification(userID, comment.ReplyToUserID, feedID) //创建回复通知
 	}
-	return comment, nil //返回评论
+
+	return s.buildCommentResponse(comment), nil //返回评论
 }
 
-// DeleteComment 删除评论，并失效动态详情缓存，避免评论数不一致。
+// DeleteComment 删除评论（语义扩展）：
+// - 删除根评论 → 整楼级联软删除（全部楼内回复一并删除），评论数一次扣减 1+N；
+// - 删除楼内回复 → 仅删该条。
 func (s *FeedService) DeleteComment(currentUserID, feedID, commentID uint) error {
 	//获取评论
 	comment, err := s.feedRepo.GetCommentByIDAndFeedID(commentID, feedID)
@@ -688,51 +728,187 @@ func (s *FeedService) DeleteComment(currentUserID, feedID, commentID uint) error
 		tx.Rollback() //回滚
 		return errors.New("删除评论失败")
 	}
-	if err := s.feedRepo.DecreaseCommentCount(tx, feedID); err != nil { //减少评论数
-		tx.Rollback()
-		return err
+	if comment.RootID == 0 { //根评论：级联删除整楼回复
+		removed, delErr := s.feedRepo.DeleteRepliesByRootID(tx, comment.ID)
+		if delErr != nil {
+			tx.Rollback()
+			return errors.New("删除评论失败")
+		}
+		if err := s.feedRepo.DecreaseCommentCountBy(tx, feedID, 1+removed); err != nil { //评论数一次扣减 1+N
+			tx.Rollback()
+			return err
+		}
+	} else { //楼内回复：仅删本条
+		if err := s.feedRepo.DecreaseCommentCount(tx, feedID); err != nil { //减少评论数
+			tx.Rollback()
+			return err
+		}
 	}
 	if err := tx.Commit().Error; err != nil { //提交事务
 		return errors.New("删除评论失败")
 	}
 	cache.DeleteFeedDetailWithRetry(feedID, 24*time.Hour) //删除动态详情缓存
-	// 撤回对应的评论通知（fire-and-forget）
+	// 撤回对应通知（fire-and-forget）：
+	// - 根评论撤回"评论了你的动态"；楼内回复撤回"回复了你的评论"
+	// - 整楼级联删除时，楼内其他回复者的 reply 通知不逐条撤回（通知模型未存评论 ID，按设计取舍）
 	if feed, feedErr := s.feedRepo.GetByID(feedID); feedErr == nil {
-		s.notificationService.RetractNotification(comment.UserID, feed.UserID, feedID, models.NotificationTypeComment)
+		if comment.RootID == 0 {
+			s.notificationService.RetractNotification(comment.UserID, feed.UserID, feedID, models.NotificationTypeComment)
+		} else if comment.ReplyToUserID > 0 {
+			s.notificationService.RetractNotification(currentUserID, comment.ReplyToUserID, feedID, models.NotificationTypeReply)
+		}
 	}
 	return nil
 }
 
-// 获取评论
-func (s *FeedService) GetComments(feedID uint, page, pageSize int) ([]models.CommentResponse, int64, error) {
-	//获取评论
-	comments, total, err := s.feedRepo.ListCommentsByFeedID(feedID, page, pageSize)
+// GetCommentThreads 评论列表（语义变更）：只返回根评论楼层，每层内嵌时间正序前 3 条首屏回复。
+// total 为根评论总数。
+func (s *FeedService) GetCommentThreads(feedID uint, page, pageSize int) ([]models.CommentThreadResponse, int64, error) {
+	roots, total, err := s.feedRepo.ListRootCommentsByFeedID(feedID, page, pageSize)
 	if err != nil {
 		return nil, 0, err
 	}
-	userIDs := make([]uint, 0, len(comments)) //用户ID
+	if len(roots) == 0 {
+		return []models.CommentThreadResponse{}, total, nil
+	}
+
+	rootIDs := make([]uint, 0, len(roots))
+	for _, c := range roots {
+		rootIDs = append(rootIDs, c.ID)
+	}
+
+	replyCount, _ := s.feedRepo.CountRepliesByRootIDs(rootIDs)    //每层楼的回复总数
+	allReplies, _ := s.feedRepo.ListRepliesByRootIDs(rootIDs)     //各楼层全部回复（时间正序）
+	firstReplies := make(map[uint][]models.Comment, len(rootIDs)) //首屏回复：每组取前 3 条
+	for _, r := range allReplies {
+		if len(firstReplies[r.RootID]) < 3 {
+			firstReplies[r.RootID] = append(firstReplies[r.RootID], r)
+		}
+	}
+
+	// 批量取用户信息（根评论 + 首屏回复），避免 N+1
+	userIDs := make([]uint, 0, len(roots)+len(allReplies))
+	for _, c := range roots {
+		userIDs = append(userIDs, c.UserID)
+	}
+	for _, r := range firstRepliesFlat(firstReplies) {
+		userIDs = append(userIDs, r.UserID)
+	}
+	userMap := s.userMap(userIDs)
+
+	threads := make([]models.CommentThreadResponse, 0, len(roots))
+	for _, root := range roots {
+		thread := models.CommentThreadResponse{
+			ID:         root.ID,
+			UserID:     root.UserID,
+			FeedID:     root.FeedID,
+			Content:    root.Content,
+			CreatedAt:  root.CreatedAt,
+			ReplyCount: replyCount[root.ID],
+			Replies:    make([]models.CommentResponse, 0, len(firstReplies[root.ID])),
+		}
+		if u, ok := userMap[root.UserID]; ok {
+			thread.Username = u.Username
+			thread.Nickname = u.Nickname
+		}
+		for _, r := range firstReplies[root.ID] {
+			thread.Replies = append(thread.Replies, s.toCommentResponse(r, userMap))
+		}
+		threads = append(threads, thread)
+	}
+	return threads, total, nil
+}
+
+// GetFloorReplies 楼内回复列表：comment_id 必须是根评论，时间正序分页。
+func (s *FeedService) GetFloorReplies(feedID, commentID uint, page, pageSize int) ([]models.CommentResponse, int64, error) {
+	comment, err := s.feedRepo.GetCommentByIDAndFeedID(commentID, feedID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, 0, errors.New("评论不存在")
+		}
+		return nil, 0, err
+	}
+	if comment.RootID != 0 {
+		return nil, 0, errors.New("仅根评论支持查看楼内回复")
+	}
+
+	replies, total, err := s.feedRepo.ListRepliesByRootID(commentID, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	return s.buildCommentResponses(replies), total, nil
+}
+
+// buildCommentResponse 单条评论 → 展示模型（单条查询路径，带作者信息）。
+func (s *FeedService) buildCommentResponse(comment *models.Comment) *models.CommentResponse {
+	resp := &models.CommentResponse{
+		ID:               comment.ID,
+		UserID:           comment.UserID,
+		FeedID:           comment.FeedID,
+		Content:          comment.Content,
+		CreatedAt:        comment.CreatedAt,
+		ReplyToCommentID: comment.ReplyToCommentID,
+		ReplyToUserID:    comment.ReplyToUserID,
+		ReplyToNickname:  comment.ReplyToNickname,
+	}
+	if u, err := s.userRepo.GetByID(comment.UserID); err == nil {
+		resp.Username = u.Username
+		resp.Nickname = u.Nickname
+	}
+	return resp
+}
+
+// buildCommentResponses 批量评论 → 展示模型（批量查询用户，避免 N+1）。
+func (s *FeedService) buildCommentResponses(comments []models.Comment) []models.CommentResponse {
+	userIDs := make([]uint, 0, len(comments))
 	for _, c := range comments {
 		userIDs = append(userIDs, c.UserID)
 	}
-	users, _ := s.userRepo.ListByIDs(userIDs) //获取用户信息
-	userMap := map[uint]models.User{}
+	userMap := s.userMap(userIDs)
+	result := make([]models.CommentResponse, 0, len(comments))
+	for _, c := range comments {
+		result = append(result, s.toCommentResponse(c, userMap))
+	}
+	return result
+}
+
+// toCommentResponse 用预取的用户映射构建展示模型。
+func (s *FeedService) toCommentResponse(c models.Comment, userMap map[uint]models.User) models.CommentResponse {
+	resp := models.CommentResponse{
+		ID:               c.ID,
+		UserID:           c.UserID,
+		FeedID:           c.FeedID,
+		Content:          c.Content,
+		CreatedAt:        c.CreatedAt,
+		ReplyToCommentID: c.ReplyToCommentID,
+		ReplyToUserID:    c.ReplyToUserID,
+		ReplyToNickname:  c.ReplyToNickname,
+	}
+	if u, ok := userMap[c.UserID]; ok {
+		resp.Username = u.Username
+		resp.Nickname = u.Nickname
+	}
+	return resp
+}
+
+// userMap 批量取用户并转映射。
+func (s *FeedService) userMap(userIDs []uint) map[uint]models.User {
+	unique := s.uniqueUint(userIDs)
+	users, _ := s.userRepo.ListByIDs(unique)
+	m := make(map[uint]models.User, len(users))
 	for _, u := range users {
-		userMap[u.ID] = u //设置用户信息
+		m[u.ID] = u
 	}
-	result := make([]models.CommentResponse, 0, len(comments)) //评论详情
-	for _, comment := range comments {
-		if u, ok := userMap[comment.UserID]; ok {
-			result = append(result, models.CommentResponse{
-				ID:       comment.ID,
-				UserID:   comment.UserID,
-				FeedID:   comment.FeedID,
-				Content:  comment.Content,
-				Username: u.Username,
-				Nickname: u.Nickname,
-			})
-		}
+	return m
+}
+
+// firstRepliesFlat 展平首屏回复映射，用于收集用户 ID。
+func firstRepliesFlat(m map[uint][]models.Comment) []models.Comment {
+	var out []models.Comment
+	for _, list := range m {
+		out = append(out, list...)
 	}
-	return result, total, nil
+	return out
 }
 
 // SearchFeeds 搜索动态内容，用于全局搜索“动态”tab。

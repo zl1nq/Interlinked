@@ -101,25 +101,61 @@
           <div v-for="comment in comments" :key="comment.id" class="comment-line">
             <span class="comment-user clickable-user" @click="$emit('click-author', comment.user_id)">{{ comment.nickname || comment.username || '用户' }}</span>
             <span>：{{ comment.content }}</span>
-            <button
-              v-if="comment.user_id === currentUserId"
-              class="comment-delete"
-              type="button"
-              @click="deleteComment(comment.id)"
-            >
-              删除
-            </button>
+            <span class="comment-ops">
+              <button class="comment-reply-btn" type="button" @click="startReply(comment)">回复</button>
+              <button
+                v-if="comment.user_id === currentUserId"
+                class="comment-delete"
+                type="button"
+                @click="deleteComment(comment.id)"
+              >
+                删除
+              </button>
+            </span>
+
+            <!-- 楼内回复：缩进聚合展示 -->
+            <div v-if="comment.replies && comment.replies.length" class="reply-list">
+              <div v-for="reply in comment.replies" :key="reply.id" class="comment-line reply-line">
+                <span class="comment-user clickable-user" @click="$emit('click-author', reply.user_id)">{{ reply.nickname || reply.username || '用户' }}</span>
+                <span v-if="reply.reply_to_nickname" class="reply-at">回复 @{{ reply.reply_to_nickname }}：</span>
+                <span v-else>：</span>
+                <span>{{ reply.content }}</span>
+                <span class="comment-ops">
+                  <button class="comment-reply-btn" type="button" @click="startReply(reply, comment)">回复</button>
+                  <button
+                    v-if="reply.user_id === currentUserId"
+                    class="comment-delete"
+                    type="button"
+                    @click="deleteComment(reply.id)"
+                  >
+                    删除
+                  </button>
+                </span>
+              </div>
+              <button
+                v-if="comment.reply_count > comment.replies.length"
+                class="more-comments"
+                type="button"
+                @click="loadAllReplies(comment)"
+              >
+                查看全部 {{ comment.reply_count }} 条回复
+              </button>
+            </div>
           </div>
           <button v-if="commentsHasMore" class="more-comments" type="button" @click="loadComments">查看更多评论</button>
         </div>
       </div>
 
       <div v-if="showCommentEditor" class="comment-editor">
+        <div v-if="replyTarget" class="replying-hint">
+          <span>回复 @{{ replyTarget.nickname }}</span>
+          <button class="reply-cancel" type="button" @click="cancelReply">取消</button>
+        </div>
         <el-input
           v-model="commentContent"
           size="small"
           maxlength="500"
-          placeholder="说点什么..."
+          :placeholder="replyTarget ? `回复 @${replyTarget.nickname}` : '说点什么...'"
           @keyup.enter="handleComment"
         >
           <template #append>
@@ -159,6 +195,9 @@ const comments = ref([])
 const commentPage = ref(1)
 const commentsHasMore = ref(false)
 const likers = ref([])
+
+// 回复目标：commentId 为被回复评论 ID（根或楼内回复均可），rootId 为所在楼
+const replyTarget = ref(null)
 
 const currentUserId = computed(() => userStore.userInfo?.id)
 const hasInteractions = computed(() => (props.feed.like_count || 0) > 0 || comments.value.length > 0)
@@ -248,8 +287,9 @@ async function handleComment() {
 
   commenting.value = true
   try {
-    await feedApi.addComment(props.feed.id, content)
+    await feedApi.addComment(props.feed.id, content, replyTarget.value?.commentId || 0)
     commentContent.value = ''
+    replyTarget.value = null
     props.feed.comment_count = (props.feed.comment_count || 0) + 1
     await loadComments(true)
     ElMessage.success('评论成功')
@@ -260,12 +300,37 @@ async function handleComment() {
   }
 }
 
+// 删除评论/回复后重新拉取：删根评论会整楼级联删除，本地拼接容易出错
 async function deleteComment(commentId) {
   try {
     await feedApi.deleteComment(props.feed.id, commentId)
-    comments.value = comments.value.filter((item) => item.id !== commentId)
     props.feed.comment_count = Math.max((props.feed.comment_count || 0) - 1, 0)
+    await loadComments(true)
     ElMessage.success('评论已删除')
+  } catch (e) {
+    // handled by interceptor
+  }
+}
+
+function startReply(target, rootComment) {
+  replyTarget.value = {
+    commentId: target.id,
+    rootId: rootComment ? rootComment.id : target.id,
+    nickname: target.nickname || target.username || '用户',
+  }
+  showCommentEditor.value = true
+}
+
+function cancelReply() {
+  replyTarget.value = null
+}
+
+// 查看全部回复：一次性拉取该楼回复（page_size=50，见接口文档 §3）
+async function loadAllReplies(comment) {
+  try {
+    const res = await feedApi.getCommentReplies(props.feed.id, comment.id, 1, 50)
+    comment.replies = res.data.list || []
+    if (res.data.total !== undefined) comment.reply_count = res.data.total
   } catch (e) {
     // handled by interceptor
   }
@@ -621,5 +686,65 @@ function formatTime(timeStr) {
 
 .comment-editor {
   margin-top: 10px;
+}
+
+/* 回复态提示条 */
+.replying-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 0 2px 6px;
+}
+
+.reply-cancel {
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.reply-cancel:hover {
+  color: var(--text-primary);
+}
+
+/* 楼内回复：缩进 + 左侧发丝线 */
+.reply-list {
+  margin-top: 8px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border-subtle);
+  display: grid;
+  gap: 7px;
+}
+
+.comment-ops {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.comment-reply-btn {
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.comment-reply-btn:hover {
+  color: var(--brand-linked);
+}
+
+.reply-at {
+  color: var(--text-secondary);
 }
 </style>

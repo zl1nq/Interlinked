@@ -55,6 +55,21 @@ func (s *NotificationService) CreateCommentNotification(actorID, receiverID, fee
 	})
 }
 
+// CreateReplyNotification 创建楼内回复通知（被回复者 ≠ 自己时由调用方保证）。
+// target_id 为动态 ID，为通知精确跳转预留。
+func (s *NotificationService) CreateReplyNotification(actorID, receiverID, feedID uint) {
+	if actorID == 0 || receiverID == 0 || actorID == receiverID {
+		return
+	}
+	_ = s.notificationRepo.Create(&models.Notification{
+		UserID:   receiverID,
+		ActorID:  actorID,
+		Type:     models.NotificationTypeReply,
+		TargetID: feedID,
+		Content:  "回复了你的评论",
+	})
+}
+
 // CreateFollowNotification 创建关注通知。
 func (s *NotificationService) CreateFollowNotification(actorID, receiverID uint) {
 	if actorID == 0 || receiverID == 0 || actorID == receiverID {

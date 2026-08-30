@@ -78,7 +78,7 @@ const activeTab = ref('all')
 const filteredList = computed(() => {
   if (activeTab.value === 'all') return list.value
   if (activeTab.value === 'like') return list.value.filter((n) => n.type === 'like')
-  if (activeTab.value === 'comment') return list.value.filter((n) => n.type === 'comment')
+  if (activeTab.value === 'comment') return list.value.filter((n) => n.type === 'comment' || n.type === 'reply')
   if (activeTab.value === 'follow') return list.value.filter((n) => n.type === 'follow')
   return list.value
 })
@@ -155,6 +155,7 @@ function normalizedContent(n) {
   if (n.content) return n.content
   if (n.type === 'like') return '赞了你的动态'
   if (n.type === 'comment') return '评论了你的动态'
+  if (n.type === 'reply') return '回复了你的评论'
   if (n.type === 'follow') return '关注了你'
   return '与你产生了互动'
 }
@@ -162,6 +163,7 @@ function normalizedContent(n) {
 function typeLabel(type) {
   if (type === 'like') return '赞'
   if (type === 'comment') return '评论'
+  if (type === 'reply') return '回复'
   if (type === 'follow') return '关注'
   return '通知'
 }

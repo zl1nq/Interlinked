@@ -6,6 +6,7 @@ const (
 	NotificationTypeLike    = "like"
 	NotificationTypeComment = "comment"
 	NotificationTypeFollow  = "follow"
+	NotificationTypeReply   = "reply" // 楼内回复被回复者
 )
 
 // Notification 通知中心实体，统一承载点赞/评论/关注等行为通知。

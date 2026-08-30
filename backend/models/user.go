@@ -18,9 +18,9 @@ type User struct {
 	TokenVersion  int            `gorm:"default:1;not null" json:"-"` // 令牌版本：改密后 +1 吊销所有旧 JWT
 	Avatar        string         `gorm:"type:varchar(500);default:''" json:"avatar"`
 	Bio           string         `gorm:"type:varchar(500);default:''" json:"bio"`
-	FollowerCount int64          `gorm:"default:0" json:"follower_count"` // 粉丝数
-	FollowCount   int64          `gorm:"default:0" json:"follow_count"`   // 关注数a
-	IsBigV        bool           `gorm:"default:false" json:"is_big_v"`   // 是否为大V（粉丝数超过阈值）
+	FollowerCount int64          `gorm:"default:0;index:idx_user_follower_count" json:"follower_count"` // 粉丝数（发现页热门用户排行索引）
+	FollowCount   int64          `gorm:"default:0" json:"follow_count"`                                 // 关注数a
+	IsBigV        bool           `gorm:"default:false" json:"is_big_v"`                                 // 是否为大V（粉丝数超过阈值）
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`

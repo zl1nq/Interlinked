@@ -132,11 +132,32 @@ export const feedApi = {
     getComments(feedId, page = 1, pageSize = 20) {
         return request.get(`/feeds/${feedId}/comments`, { params: { page, page_size: pageSize } })
     },
-    addComment(feedId, content) {
-        return request.post(`/feeds/${feedId}/comments`, { content })
+    addComment(feedId, content, parentId = 0) {
+        // parentId 为被回复评论 ID（根或楼内回复均可），省略 = 发根评论
+        const payload = { content }
+        if (parentId) payload.parent_id = parentId
+        return request.post(`/feeds/${feedId}/comments`, payload)
+    },
+    // 楼内回复分页列表（契约见 docs/评论回复API.md）
+    getCommentReplies(feedId, commentId, page = 1, pageSize = 50) {
+        return request.get(`/feeds/${feedId}/comments/${commentId}/replies`, {
+            params: { page, page_size: pageSize },
+        })
     },
     deleteComment(feedId, commentId) {
         return request.delete(`/feeds/${feedId}/comments/${commentId}`)
+    },
+}
+
+// ==================== 发现页相关 ====================
+export const discoverApi = {
+    // 粉丝数全站 Top 用户（排除自己），契约见 docs/发现页热门推荐API.md
+    getPopularUsers(page = 1, pageSize = 10) {
+        return request.get('/discover/popular-users', { params: { page, page_size: pageSize } })
+    },
+    // 点赞数全站历史 Top 动态
+    getPopularFeeds(page = 1, pageSize = 10) {
+        return request.get('/discover/popular-feeds', { params: { page, page_size: pageSize } })
     },
 }
 

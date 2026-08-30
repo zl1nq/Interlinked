@@ -253,8 +253,9 @@ func (h *FeedHandler) GetFeedLikers(c *gin.Context) {
 	utils.SuccessPage(c, likers, total, page, pageSize)
 }
 
-// CommentFeed 评论动态
+// CommentFeed 评论动态（发根评论或楼内回复）
 // POST /api/feeds/:id/comments
+// 请求体：{content, parent_id?}；parent_id 省略或 0 = 根评论
 func (h *FeedHandler) CommentFeed(c *gin.Context) {
 	currentUserID := middleware.GetCurrentUserID(c)
 	feedIDStr := c.Param("id")
@@ -264,15 +265,13 @@ func (h *FeedHandler) CommentFeed(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		Content string `json:"content" binding:"required,min=1,max=500"`
-	}
+	var req services.CommentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.Error(c, 400, "参数错误: "+err.Error())
 		return
 	}
 
-	comment, err := h.feedService.CommentFeed(currentUserID, uint(feedID), req.Content)
+	comment, err := h.feedService.CommentFeed(currentUserID, uint(feedID), &req)
 	if err != nil {
 		utils.Error(c, 400, err.Error())
 		return
@@ -308,7 +307,7 @@ func (h *FeedHandler) DeleteComment(c *gin.Context) {
 	utils.SuccessWithMessage(c, "删除评论成功", nil)
 }
 
-// GetComments 获取评论列表
+// GetComments 获取评论列表（语义变更：只返回根评论楼层，内嵌首屏回复）
 // GET /api/feeds/:id/comments?page=1&page_size=20
 func (h *FeedHandler) GetComments(c *gin.Context) {
 	feedIDStr := c.Param("id")
@@ -328,13 +327,51 @@ func (h *FeedHandler) GetComments(c *gin.Context) {
 		pageSize = 20
 	}
 
-	comments, total, err := h.feedService.GetComments(uint(feedID), page, pageSize)
+	threads, total, err := h.feedService.GetCommentThreads(uint(feedID), page, pageSize)
 	if err != nil {
 		utils.Error(c, 500, "获取评论列表失败")
 		return
 	}
 
-	utils.SuccessPage(c, comments, total, page, pageSize)
+	utils.SuccessPage(c, threads, total, page, pageSize)
+}
+
+// GetCommentReplies 楼内回复列表（时间正序分页）
+// GET /api/feeds/:id/comments/:comment_id/replies?page=1&page_size=10
+func (h *FeedHandler) GetCommentReplies(c *gin.Context) {
+	feedIDStr := c.Param("id")
+	feedID, err := strconv.ParseUint(feedIDStr, 10, 64)
+	if err != nil {
+		utils.Error(c, 400, "动态ID无效")
+		return
+	}
+	commentIDStr := c.Param("comment_id")
+	commentID, err := strconv.ParseUint(commentIDStr, 10, 64)
+	if err != nil {
+		utils.Error(c, 400, "评论ID无效")
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 50 {
+		pageSize = 10
+	}
+
+	replies, total, err := h.feedService.GetFloorReplies(uint(feedID), uint(commentID), page, pageSize)
+	if err != nil {
+		utils.Error(c, 400, err.Error())
+		return
+	}
+
+	utils.Success(c, gin.H{
+		"list":     replies,
+		"total":    total,
+		"has_more": int64(page*pageSize) < total,
+	})
 }
 
 // SearchFeeds 搜索动态

@@ -32,6 +32,7 @@ func SetupRouter() *gin.Engine {
 	feedService := services.NewFeedService()
 	messageService := services.NewMessageService()
 	notificationService := services.NewNotificationService()
+	discoverService := services.NewDiscoverService()
 
 	// 初始化Handler
 	userHandler := handlers.NewUserHandler(userService)
@@ -42,6 +43,7 @@ func SetupRouter() *gin.Engine {
 	wsHandler := handlers.NewWSHandler(messageService)
 	messageHandler := handlers.NewMessageHandler(messageService)
 	opsHandler := handlers.NewOpsHandler()
+	discoverHandler := handlers.NewDiscoverHandler(discoverService)
 
 	// API路由组
 	api := r.Group("/api")
@@ -103,6 +105,7 @@ func SetupRouter() *gin.Engine {
 			authenticated.POST("/feeds/:id/comments", middleware.RateLimitByFeedFromContext("comment", rl.CommentFeed.Rate, rl.CommentFeed.Burst), feedHandler.CommentFeed)                        //令牌桶限流
 			authenticated.DELETE("/feeds/:id/comments/:comment_id", middleware.RateLimitByFeedFromContext("delete_comment", rl.CommentFeed.Rate, rl.CommentFeed.Burst), feedHandler.DeleteComment) //令牌桶限流
 			authenticated.GET("/feeds/:id/comments", feedHandler.GetComments)
+			authenticated.GET("/feeds/:id/comments/:comment_id/replies", feedHandler.GetCommentReplies) //楼内回复列表
 
 			// 私信：WebSocket 负责实时发送/接收，HTTP 提供会话与历史兜底读取。
 			authenticated.GET("/ws/messages", wsHandler.MessageWS)
@@ -114,6 +117,10 @@ func SetupRouter() *gin.Engine {
 			authenticated.POST("/notifications/read-all", notificationHandler.MarkAllRead)
 			authenticated.DELETE("/notifications/:id", notificationHandler.DeleteNotification)          //删除单条通知
 			authenticated.POST("/notifications/clear-read", notificationHandler.ClearReadNotifications) //一键清空已读
+
+			// 发现页
+			authenticated.GET("/discover/popular-users", discoverHandler.PopularUsers) //热门用户
+			authenticated.GET("/discover/popular-feeds", discoverHandler.PopularFeeds) //热门动态
 
 			// 运维观测
 			authenticated.GET("/ops/mq/metrics", opsHandler.MQMetrics)

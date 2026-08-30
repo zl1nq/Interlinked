@@ -30,6 +30,8 @@ type FeedRepository interface {
 	ListByIDs(feedIDs []uint) ([]models.Feed, error)
 	ListByIDsBeforeCursor(feedIDs []uint, cursorTime time.Time, cursorID uint) ([]models.Feed, error)
 	ListByIDsNewerThanCursor(feedIDs []uint, cursorTime time.Time, cursorID uint) ([]models.Feed, error)
+	ListPopularFeeds(page, pageSize int) ([]models.Feed, int64, error)
+	ListTopFeedIDs(limit int) ([]uint, int64, error)
 	SearchByKeyword(keyword string, page, pageSize int) ([]models.Feed, int64, error)
 
 	CreateTimeline(tx *gorm.DB, timeline *models.Timeline) error
@@ -49,6 +51,13 @@ type FeedRepository interface {
 	DeleteComment(tx *gorm.DB, comment *models.Comment) error
 	DeleteCommentsByFeedID(feedID uint) error
 	ListCommentsByFeedID(feedID uint, page, pageSize int) ([]models.Comment, int64, error)
+
+	ListRootCommentsByFeedID(feedID uint, page, pageSize int) ([]models.Comment, int64, error)
+	CountRepliesByRootIDs(rootIDs []uint) (map[uint]int64, error)
+	ListRepliesByRootIDs(rootIDs []uint) ([]models.Comment, error)
+	ListRepliesByRootID(rootID uint, page, pageSize int) ([]models.Comment, int64, error)
+	DeleteRepliesByRootID(tx *gorm.DB, rootID uint) (int64, error)
+	DecreaseCommentCountBy(tx *gorm.DB, feedID uint, n int64) error
 
 	BeginTx() *gorm.DB
 }
@@ -171,6 +180,37 @@ func (r *feedMySQLRepository) ListByIDsNewerThanCursor(feedIDs []uint, cursorTim
 	return feeds, nil
 }
 
+// ListTopFeedIDs 点赞数 Top N 动态的 ID（全站排行，原创+转发同榜），供发现页缓存回源。
+// deleted_at IS NULL 为显式声明（GORM 软删过滤本会自动追加，写出便于阅读）。
+func (r *feedMySQLRepository) ListTopFeedIDs(limit int) ([]uint, int64, error) {
+	var total int64
+	if err := r.db.Model(&models.Feed{}).Where("deleted_at IS NULL").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var ids []uint
+	if err := r.db.Model(&models.Feed{}).Select("id").Where("deleted_at IS NULL").
+		Order("like_count DESC, id DESC").Limit(limit).Pluck("id", &ids).Error; err != nil {
+		return nil, 0, err
+	}
+	return ids, total, nil
+}
+
+// ListPopularFeeds 点赞数全站排行（原创+转发同榜），按 like_count DESC, id DESC 稳定排序。
+// deleted_at IS NULL 为显式声明（GORM 软删过滤本会自动追加，写出便于阅读）。
+func (r *feedMySQLRepository) ListPopularFeeds(page, pageSize int) ([]models.Feed, int64, error) {
+	var feeds []models.Feed
+	var total int64
+	query := r.db.Model(&models.Feed{}) //.Where("deleted_at IS NULL")
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	offset := (page - 1) * pageSize
+	if err := query.Order("like_count DESC, id DESC").Offset(offset).Limit(pageSize).Find(&feeds).Error; err != nil {
+		return nil, 0, err
+	}
+	return feeds, total, nil
+}
+
 func (r *feedMySQLRepository) SearchByKeyword(keyword string, page, pageSize int) ([]models.Feed, int64, error) {
 	var feeds []models.Feed
 	var total int64
@@ -289,4 +329,82 @@ func (r *feedMySQLRepository) ListCommentsByFeedID(feedID uint, page, pageSize i
 		return nil, 0, err
 	}
 	return comments, total, nil
+}
+
+// ListRootCommentsByFeedID 分页获取动态的根评论（root_id=0），时间正序。
+func (r *feedMySQLRepository) ListRootCommentsByFeedID(feedID uint, page, pageSize int) ([]models.Comment, int64, error) {
+	var comments []models.Comment
+	var total int64
+	query := r.db.Model(&models.Comment{}).Where("feed_id = ? AND root_id = 0", feedID)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	offset := (page - 1) * pageSize
+	if err := query.Order("created_at ASC, id ASC").Offset(offset).Limit(pageSize).Find(&comments).Error; err != nil {
+		return nil, 0, err
+	}
+	return comments, total, nil
+}
+
+// CountRepliesByRootIDs 统计每层楼的回复数（不含根评论自身），返回 root_id -> 回复数。
+func (r *feedMySQLRepository) CountRepliesByRootIDs(rootIDs []uint) (map[uint]int64, error) {
+	counts := make(map[uint]int64, len(rootIDs))
+	if len(rootIDs) == 0 {
+		return counts, nil
+	}
+	type row struct {
+		RootID uint  `json:"root_id"`
+		Cnt    int64 `json:"cnt"`
+	}
+	var rows []row
+	if err := r.db.Model(&models.Comment{}).
+		Select("root_id, COUNT(*) AS cnt").
+		Where("root_id IN ?", rootIDs).
+		Group("root_id").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, rw := range rows {
+		counts[rw.RootID] = rw.Cnt
+	}
+	return counts, nil
+}
+
+// ListRepliesByRootIDs 批量取各楼层全部回复（时间正序），供首屏"前 3 条"在内存中切分。
+func (r *feedMySQLRepository) ListRepliesByRootIDs(rootIDs []uint) ([]models.Comment, error) {
+	if len(rootIDs) == 0 {
+		return []models.Comment{}, nil
+	}
+	var replies []models.Comment
+	if err := r.db.Where("root_id IN ?", rootIDs).
+		Order("root_id ASC, created_at ASC, id ASC").Find(&replies).Error; err != nil {
+		return nil, err
+	}
+	return replies, nil
+}
+
+// ListRepliesByRootID 楼内回复按时间正序分页（根评论 ID 视角）。
+func (r *feedMySQLRepository) ListRepliesByRootID(rootID uint, page, pageSize int) ([]models.Comment, int64, error) {
+	var replies []models.Comment
+	var total int64
+	query := r.db.Model(&models.Comment{}).Where("root_id = ?", rootID)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	offset := (page - 1) * pageSize
+	if err := query.Order("created_at ASC, id ASC").Offset(offset).Limit(pageSize).Find(&replies).Error; err != nil {
+		return nil, 0, err
+	}
+	return replies, total, nil
+}
+
+// DeleteRepliesByRootID 软删除整楼的全部回复（根评论删除时的级联），返回删除行数，幂等。
+func (r *feedMySQLRepository) DeleteRepliesByRootID(tx *gorm.DB, rootID uint) (int64, error) {
+	res := tx.Where("root_id = ?", rootID).Delete(&models.Comment{})
+	return res.RowsAffected, res.Error
+}
+
+// DecreaseCommentCountBy 按数量递减动态评论数（整楼级联删除时一次减去 1+N）。
+func (r *feedMySQLRepository) DecreaseCommentCountBy(tx *gorm.DB, feedID uint, n int64) error {
+	return tx.Model(&models.Feed{}).Where("id = ?", feedID).
+		UpdateColumn("comment_count", gorm.Expr("GREATEST(comment_count - ?, 0)", n)).Error
 }

@@ -20,6 +20,8 @@ type UserRepository interface {
 	IsFollowing(userID, targetUserID uint) (bool, error)
 	Search(keyword string, page, pageSize int) ([]models.User, int64, error)
 	ListByIDs(userIDs []uint) ([]models.User, error)
+	ListPopularUsers(excludeUserID uint, page, pageSize int) ([]models.User, int64, error)
+	ListTopUserIDs(limit int) ([]uint, int64, error)
 	UpdateProfile(userID uint, avatar, bio, nickname *string) (*models.User, error)
 	UpdatePassword(userID uint, hashedPassword string) error
 	UpdateEmail(userID uint, email string) error
@@ -109,6 +111,37 @@ func (r *userMySQLRepository) ListByIDs(userIDs []uint) ([]models.User, error) {
 		return nil, err
 	}
 	return users, nil
+}
+
+// ListTopUserIDs 粉丝数 Top N 用户的 ID（全站排行，不排除任何人），供发现页缓存回源。
+// deleted_at IS NULL 为显式声明（GORM 软删过滤本会自动追加，写出便于阅读）。
+func (r *userMySQLRepository) ListTopUserIDs(limit int) ([]uint, int64, error) {
+	var total int64
+	if err := r.db.Model(&models.User{}).Where("deleted_at IS NULL").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var ids []uint
+	if err := r.db.Model(&models.User{}).Select("id").Where("deleted_at IS NULL").
+		Order("follower_count DESC, id DESC").Limit(limit).Pluck("id", &ids).Error; err != nil {
+		return nil, 0, err
+	}
+	return ids, total, nil
+}
+
+// ListPopularUsers 粉丝数全站排行（排除指定用户），按 follower_count DESC, id DESC 稳定排序。
+// deleted_at IS NULL 为显式声明（GORM 软删过滤本会自动追加，写出便于阅读）。
+func (r *userMySQLRepository) ListPopularUsers(excludeUserID uint, page, pageSize int) ([]models.User, int64, error) {
+	var users []models.User
+	var total int64
+	query := r.db.Model(&models.User{}).Where("id <> ? AND deleted_at IS NULL", excludeUserID)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	offset := (page - 1) * pageSize
+	if err := query.Order("follower_count DESC, id DESC").Offset(offset).Limit(pageSize).Find(&users).Error; err != nil {
+		return nil, 0, err
+	}
+	return users, total, nil
 }
 
 func (r *userMySQLRepository) UpdateProfile(userID uint, avatar, bio, nickname *string) (*models.User, error) {

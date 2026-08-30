@@ -69,10 +69,10 @@ func (r *notificationMySQLRepository) DeleteReadByUser(userID uint) (int64, erro
 	return res.RowsAffected, res.Error
 }
 
-// DeleteByTargetFeed 物理删除指向某动态的全部点赞/评论通知（动态删除时的级联清理）。
+// DeleteByTargetFeed 物理删除指向某动态的全部点赞/评论/回复通知（动态删除时的级联清理）。
 func (r *notificationMySQLRepository) DeleteByTargetFeed(feedID uint) (int64, error) {
 	res := r.db.Where("target_id = ? AND type IN ?", feedID,
-		[]string{models.NotificationTypeLike, models.NotificationTypeComment}).Delete(&models.Notification{})
+		[]string{models.NotificationTypeLike, models.NotificationTypeComment, models.NotificationTypeReply}).Delete(&models.Notification{})
 	return res.RowsAffected, res.Error
 }
 

@@ -22,7 +22,7 @@ type Feed struct {
 	Videos       string         `gorm:"type:varchar(2000);default:''" json:"videos"`                                           // 视频URL列表，JSON数组
 	FeedType     int            `gorm:"default:0" json:"feed_type"`                                                            // 0-原创 1-转发
 	OriginalID   *uint          `gorm:"index" json:"original_id"`                                                              // 转发的原始Feed ID
-	LikeCount    int64          `gorm:"default:0" json:"like_count"`                                                           // 点赞数
+	LikeCount    int64          `gorm:"default:0;index:idx_feed_like_count" json:"like_count"`                                 // 点赞数（发现页热门动态排行索引）
 	CommentCount int64          `gorm:"default:0" json:"comment_count"`                                                        // 评论数
 	ShareCount   int64          `gorm:"default:0" json:"share_count"`                                                          // 转发数
 	CreatedAt    time.Time      `gorm:"index:idx_user_created;index:idx_feed_created_user,priority:1;index:idx_feed_created" json:"created_at"`
@@ -91,26 +91,51 @@ type LikeResponse struct {
 	Nickname string `json:"nickname"`
 }
 
-// Comment 评论模型
+// Comment 评论模型（两段式楼中楼）：
+//   - 根评论：root_id=0；
+//   - 楼内回复：root_id=所属根评论 ID，reply_to 三元组指向被回复的那条评论
+//     （直接回复根评论时 reply_to_comment_id = root_id）。
 type Comment struct {
 	ID        uint           `gorm:"primaryKey;autoIncrement" json:"id"`
 	UserID    uint           `gorm:"index;not null" json:"user_id"`
 	FeedID    uint           `gorm:"index:idx_comment_feed_created,priority:1;not null" json:"feed_id"`
 	Content   string         `gorm:"type:varchar(500);not null" json:"content"`
-	CreatedAt time.Time      `gorm:"index:idx_comment_feed_created,priority:2" json:"created_at"`
+	RootID    uint           `gorm:"default:0;index:idx_comment_root_created,priority:1" json:"root_id"` // 0=根评论
+	CreatedAt time.Time      `gorm:"index:idx_comment_feed_created,priority:2;index:idx_comment_root_created,priority:2" json:"created_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+
+	ReplyToCommentID uint   `gorm:"default:0" json:"reply_to_comment_id"`                  // 被回复的评论 ID；直接回复根评论时等于 root_id
+	ReplyToUserID    uint   `gorm:"default:0" json:"reply_to_user_id"`                     // 被回复的用户 ID
+	ReplyToNickname  string `gorm:"type:varchar(100);default:''" json:"reply_to_nickname"` // 被回复者昵称快照
 }
 
 func (Comment) TableName() string {
 	return "comments"
 }
 
-// CommentResponse 评论列表项响应
+// CommentResponse 评论/楼内回复的展示模型。
 type CommentResponse struct {
-	ID       uint   `json:"id"`
-	UserID   uint   `json:"user_id"`
-	FeedID   uint   `json:"feed_id"`
-	Content  string `json:"content"`
-	Username string `json:"username"`
-	Nickname string `json:"nickname"`
+	ID               uint      `json:"id"`
+	UserID           uint      `json:"user_id"`
+	FeedID           uint      `json:"feed_id"`
+	Content          string    `json:"content"`
+	Username         string    `json:"username"`
+	Nickname         string    `json:"nickname"`
+	CreatedAt        time.Time `json:"created_at"`
+	ReplyToCommentID uint      `json:"reply_to_comment_id"`
+	ReplyToUserID    uint      `json:"reply_to_user_id"`
+	ReplyToNickname  string    `json:"reply_to_nickname"` // 为空表示直接回复根评论
+}
+
+// CommentThreadResponse 评论列表元素：根评论楼层（含首屏回复）。
+type CommentThreadResponse struct {
+	ID         uint              `json:"id"`
+	UserID     uint              `json:"user_id"`
+	FeedID     uint              `json:"feed_id"`
+	Content    string            `json:"content"`
+	Username   string            `json:"username"`
+	Nickname   string            `json:"nickname"`
+	CreatedAt  time.Time         `json:"created_at"`
+	ReplyCount int64             `json:"reply_count"` // 楼内回复总数（不含根评论自身）
+	Replies    []CommentResponse `json:"replies"`     // 首屏回复，时间正序前 3 条
 }
