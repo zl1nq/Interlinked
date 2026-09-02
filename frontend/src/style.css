@@ -137,6 +137,20 @@ body.dark {
   border-radius: var(--r-lg);
 }
 
+/* 窄屏对话框收缩：编辑信息/修改密码/邮箱等对话框是固定像素宽度，
+   小屏直接溢出视口，统一压到 92vw（!important 覆盖组件内联宽度） */
+@media (max-width: 640px) {
+  .el-dialog,
+  .el-message-box {
+    width: 92vw !important;
+    max-width: 92vw;
+  }
+
+  .el-dialog {
+    margin-top: 8vh;
+  }
+}
+
 .el-message {
   border-radius: var(--r-pill);
   box-shadow: var(--shadow-2);
