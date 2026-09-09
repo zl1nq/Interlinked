@@ -3,8 +3,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Vue-3-4FC08D?logo=vuedotjs&logoColor=white" alt="Vue">
   <img src="https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white" alt="Vite">
-</p>
-<p align="center">
+
   <img src="https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white" alt="Go">
   <img src="https://img.shields.io/badge/Gin-1.12-00A0A0?logo=gin&logoColor=white" alt="Gin">
   <img src="https://img.shields.io/badge/GORM-1.31-CC0000?logo=go&logoColor=white" alt="GORM">
