@@ -1,6 +1,6 @@
-# FeedLink Frontend
+# InterLinked Frontend
 
-FeedLink 前端基于 Vue 3 + Vite 实现，负责社交系统的页面渲染、路由跳转、API 调用、登录态维护和 WebSocket 私信交互。
+InterLinked 前端基于 Vue 3 + Vite 实现，负责社交系统的页面渲染、路由跳转、API 调用、登录态维护和 WebSocket 私信交互。
 
 ## 技术栈
 
