@@ -58,6 +58,7 @@ func InitMQ() error {
 		consumerCount = 10
 	}
 
+	//启动多个消费者协程，每个协程独立工作
 	for i := 0; i < consumerCount; i++ {
 		go consumerLoop(i)
 	}
@@ -250,6 +251,9 @@ func resetPublisher() error {
 }
 
 // 消费循环
+// 无限循环：不断尝试消费
+// 断线重连：如果runConsumer出错（连接断开），等待3秒后重试
+// 自动恢复：保证消费者始终运行
 func consumerLoop(workerID int) {
 	for {
 		if err := runConsumer(workerID); err != nil {
@@ -265,7 +269,8 @@ func consumerLoop(workerID int) {
 // - 订阅主队列并逐条处理
 func runConsumer(workerID int) error {
 	cfg := config.AppConfig.RabbitMQ
-
+	//建立AMQP连接和通道
+	//使用defer确保连接和通道最终关闭
 	conn, err := amqp.Dial(cfg.URL())
 	if err != nil {
 		return err
@@ -283,6 +288,8 @@ func runConsumer(workerID int) error {
 	}
 
 	//设置Qos 预取消息数量
+	//QoS（服务质量）：限制未确认消息数量
+	//防止消费者处理不过来，消息堆积在内存
 	prefetch := cfg.Prefetch
 	if prefetch <= 0 {
 		prefetch = 50
