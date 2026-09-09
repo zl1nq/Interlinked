@@ -66,63 +66,81 @@ type wsHistoryData struct {
 // GET /ws/messages?token=xxx
 func (h *WSHandler) MessageWS(c *gin.Context) {
 	claims, err := middleware.ParseTokenFromRequest(c) //解析token
+	//============Token 验证===============
+	//发送无效token事件
 	if err != nil || claims == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid token"}) //发送无效token事件
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid token"})
 		return
 	}
-
-	userID := middleware.GetCurrentUserID(c) //获取当前用户ID
+	//获取当前用户ID
+	userID := middleware.GetCurrentUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "unauthorized"}) //发送未授权事件
+		//发送未授权事件
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "unauthorized"})
 		return
 	}
+	//检查 Token 是否过期
 	if claims.ExpiresAt == nil || claims.ExpiresAt.Time.Before(time.Now()) {
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "token expired"}) //发送令牌过期事件
+		//发送令牌过期事件
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "token expired"})
 		return
 	}
-
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil) //升级连接
+	//============升级 WebSocket 连接==========
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
 	}
 
-	_ = conn.SetReadDeadline(time.Now().Add(wsReadTimeout)) //设置读取超时时间
+	//============设置超时和 Ping/Pong==========
+	//设置读取超时时间
+	_ = conn.SetReadDeadline(time.Now().Add(wsReadTimeout))
+	/*
+		设置 Pong 处理器
+		收到客户端的 Pong 响应时，刷新读取超时时间
+		实现心跳保活机制
+	*/
 	conn.SetPongHandler(func(string) error {
 		return conn.SetReadDeadline(time.Now().Add(wsPongWait)) //设置pong等待时间
 	})
 
-	client := &realtime.Client{ //创建客户端
+	//============注册客户端==========
+	//创建客户端
+	client := &realtime.Client{
 		UserID:    userID,
 		Conn:      conn,
 		ExpiresAt: claims.ExpiresAt.Time,
 	}
-	realtime.RegisterConn(client) //注册连接
+	//注册连接
+	realtime.RegisterConn(client)
 	defer func() {
 		realtime.UnregisterConn(client)
 		_ = conn.Close()
 	}()
 
+	//============启动心跳==========
 	stopPing := make(chan struct{})  //创建停止ping通道
 	go h.keepAlive(client, stopPing) //启动心跳检测
 
+	//============主循环处理消息==========
 	for {
-		if time.Now().After(client.ExpiresAt) { //如果令牌过期，则关闭连接
+		//如果令牌过期，则关闭连接
+		if time.Now().After(client.ExpiresAt) {
 			_ = client.WriteJSON(realtime.MessageEvent{Type: "auth:expired", Data: gin.H{"message": "token expired"}})                                                    //发送令牌过期事件
 			_ = client.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "token expired"), time.Now().Add(2*time.Second)) //发送关闭连接事件
 			break
 		}
-
-		_, payload, err := conn.ReadMessage() //发送方：读取发送者发送的消息（读取前端发送的消息）
+		//发送方：读取发送者发送的消息（读取前端发送的消息）
+		_, payload, err := conn.ReadMessage()
 		if err != nil {
 			break //如果读取消息失败，则关闭连接
 		}
-
+		//----------限流控制（令牌桶）----------
 		wsCfg := config.AppConfig.WS.SendMessage
 		if pass, retryAfter, _ := middleware.AllowTokenBucket("tb:ws:send:user:"+strconv.FormatUint(uint64(userID), 10), wsCfg.Rate, wsCfg.Burst); !pass {
 			_ = client.WriteJSON(realtime.MessageEvent{Type: "message:error", Data: gin.H{"message": "发送过于频繁，请稍后再试", "retry_after": retryAfter}})
 			continue //如果发送过于频繁，则发送错误事件
 		}
-
+		//----------解析消息事件----------
 		var event wsInboundEvent
 		if err := json.Unmarshal(payload, &event); err != nil {
 			_ = client.WriteJSON(realtime.MessageEvent{Type: "message:error", Data: gin.H{"message": "invalid payload"}})
@@ -140,8 +158,9 @@ func (h *WSHandler) MessageWS(c *gin.Context) {
 			_ = client.WriteJSON(realtime.MessageEvent{Type: "message:error", Data: gin.H{"message": "unsupported event type"}})
 		} //如果事件类型不支持，则发送错误事件
 	}
-
-	close(stopPing) //关闭停止ping通道
+	//==========清理==========
+	//关闭停止ping通道
+	close(stopPing)
 }
 
 // 处理发送消息事件
@@ -219,23 +238,31 @@ func (h *WSHandler) handleHistory(client *realtime.Client, raw json.RawMessage) 
 
 // 心跳检测协程
 func (h *WSHandler) keepAlive(client *realtime.Client, stop <-chan struct{}) {
-	ticker := time.NewTicker(wsPingInterval) //创建心跳检测定时器
+	//创建心跳检测定时器
+	ticker := time.NewTicker(wsPingInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-stop:
-			return //如果停止通道被关闭，则返回
+			// 外部触发关闭（客户端主动断开、业务关闭），直接退出心跳协程
+			return
 		case <-ticker.C:
+			// ========== 1. 先判断token是否过期 ==========
 			if time.Now().After(client.ExpiresAt) {
+				// 下发业务事件：通知前端token过期
 				_ = client.WriteJSON(realtime.MessageEvent{Type: "auth:expired", Data: gin.H{"message": "token expired"}})                                                    //发送令牌过期事件
 				_ = client.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "token expired"), time.Now().Add(2*time.Second)) //发送关闭连接事件
 				_ = client.Conn.Close()                                                                                                                                       //关闭连接
 				return                                                                                                                                                        //如果连接关闭，则返回
 			}
+			// ========== 2. Token没过期，发送Ping心跳帧 ==========
+			// 设置写超时，防止写阻塞卡死协程
 			_ = client.Conn.SetWriteDeadline(time.Now().Add(wsWriteWait))
+			// 发送websocket Ping控制帧，payload "ping"
 			if err := client.WriteControl(websocket.PingMessage, []byte("ping"), time.Now().Add(wsWriteWait)); err != nil {
-				_ = client.Conn.Close() //关闭连接
-				return                  //如果连接关闭，则返回
+				// Ping发送失败：网络断了、连接已失效，关闭连接退出
+				_ = client.Conn.Close()
+				return
 			}
 		}
 	}

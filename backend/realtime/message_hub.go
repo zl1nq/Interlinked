@@ -47,12 +47,18 @@ var (
 
 // RegisterConn 注册用户 WebSocket 连接。
 func RegisterConn(client *Client) {
+	//使用互斥锁保护全局 map userSockets
 	hubMu.Lock()
 	defer hubMu.Unlock()
-	if _, ok := userSockets[client.UserID]; !ok { // 如果用户没有在线连接，则注册用户
+	if _, ok := userSockets[client.UserID]; !ok {
+		// 如果用户没有在线连接，则注册用户
 		userSockets[client.UserID] = map[*Client]struct{}{}
 	}
-	userSockets[client.UserID][client] = struct{}{} // 注册客户端连接 支持多端登录
+	// 注册客户端连接 支持多端登录
+	//将当前客户端连接添加到用户的连接集合中
+	//使用 struct{}{} 作为值，不占用额外内存（空结构体占 0 字节）
+	//相当于一个 HashSet，只关心 key（连接对象）是否存在
+	userSockets[client.UserID][client] = struct{}{}
 }
 
 // UnregisterConn 注销用户 WebSocket 连接。
@@ -60,9 +66,12 @@ func UnregisterConn(client *Client) {
 	hubMu.Lock()
 	defer hubMu.Unlock()
 	if conns, ok := userSockets[client.UserID]; ok {
-		delete(conns, client) // 注销客户端连接
-		if len(conns) == 0 {  // 如果用户没有在线连接，则注销用户
-			delete(userSockets, client.UserID) // 注销用户
+		// 注销客户端连接
+		delete(conns, client)
+		// 如果用户没有在线连接，则注销用户
+		if len(conns) == 0 {
+			// 注销用户
+			delete(userSockets, client.UserID)
 		}
 	}
 }
