@@ -44,7 +44,7 @@ func (s *MessageService) SendMessage(fromUserID uint, req *SendMessageRequest) (
 	if req.ToUserID == 0 || req.ToUserID == fromUserID { //如果接收者ID为0或等于发送者ID，则返回接收方无效事件
 		return nil, errors.New("接收方无效")
 	}
-
+	//==========内容校验==========
 	content := strings.TrimSpace(req.Content) //去除消息内容前后空格
 	if content == "" {
 		return nil, errors.New("消息内容不能为空") //发送消息内容不能为空事件
@@ -53,8 +53,8 @@ func (s *MessageService) SendMessage(fromUserID uint, req *SendMessageRequest) (
 	if _, err := s.userRepo.GetByID(req.ToUserID); err != nil { //获取接收者用户
 		return nil, errors.New("接收方用户不存在") //发送接收者用户不存在事件
 	}
-
-	msg := &models.Message{ //创建消息
+	//==========创建消息==========
+	msg := &models.Message{
 		FromUserID: fromUserID,
 		ToUserID:   req.ToUserID, //设置接收者ID
 		Content:    content,      //设置消息内容
@@ -63,9 +63,10 @@ func (s *MessageService) SendMessage(fromUserID uint, req *SendMessageRequest) (
 	if err := s.messageRepo.CreateWithConversations(msg); err != nil { //创建消息并更新会话
 		return nil, errors.New("发送失败") //发送发送失败事件
 	}
-
-	// 实时推送：对方在线时立即收到新消息事件。
-	realtime.PushToUser(req.ToUserID, realtime.MessageEvent{ //接收方：读取接收者接受的消息（写入消息 前端读取）
+	//==========实时推送==========
+	// 对方在线时立即收到新消息事件。
+	//接收方：读取接收者接受的消息（写入消息 前端读取）
+	realtime.PushToUser(req.ToUserID, realtime.MessageEvent{
 		Type: "message:new", //设置消息类型
 		Data: msg,           //设置消息数据
 	})

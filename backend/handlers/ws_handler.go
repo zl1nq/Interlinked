@@ -165,28 +165,32 @@ func (h *WSHandler) MessageWS(c *gin.Context) {
 
 // 处理发送消息事件
 func (h *WSHandler) handleMessageSend(client *realtime.Client, raw json.RawMessage) {
+	//==========解析请求==========
 	var req wsSendMessageData //解析发送消息请求
 	if err := json.Unmarshal(raw, &req); err != nil {
 		_ = client.WriteJSON(realtime.MessageEvent{Type: "message:error", Data: gin.H{"message": "invalid message payload"}}) //发送错误事件
 		return
 	}
-
-	req.Content = strings.TrimSpace(req.Content)                           //去除消息内容前后空格
-	if req.Content == "" || len([]rune(req.Content)) > maxMessageContent { //如果消息内容为空或长度大于最大长度，则发送错误事件
+	//==========内容校验==========
+	//去除消息内容前后空格
+	req.Content = strings.TrimSpace(req.Content)
+	//如果消息内容为空或长度大于最大长度，则发送错误事件
+	if req.Content == "" || len([]rune(req.Content)) > maxMessageContent {
 		_ = client.WriteJSON(realtime.MessageEvent{Type: "message:error", Data: gin.H{"client_msg_id": req.ClientMsgID, "message": "消息内容长度无效"}})
 		return
 	}
-
+	//==========调用业务层发送==========
 	msg, err := h.messageService.SendMessage(client.UserID, &services.SendMessageRequest{ //发送消息
 		ToUserID: req.ToUserID,
 		Content:  req.Content,
 	})
 	if err != nil {
-		_ = client.WriteJSON(realtime.MessageEvent{Type: "message:error", Data: gin.H{"client_msg_id": req.ClientMsgID, "message": err.Error()}}) //发送错误事件
+		_ = client.WriteJSON(realtime.MessageEvent{Type: "message:error", Data: gin.H{"client_msg_id": req.ClientMsgID, "message": err.Error()}})
 		return
 	}
 
-	_ = client.WriteJSON(realtime.MessageEvent{Type: "message:ack", Data: gin.H{"client_msg_id": req.ClientMsgID, "message": msg}}) //发送确认事件
+	//==========返回成功确认==========
+	_ = client.WriteJSON(realtime.MessageEvent{Type: "message:ack", Data: gin.H{"client_msg_id": req.ClientMsgID, "message": msg}})
 }
 
 // 处理获取会话列表事件

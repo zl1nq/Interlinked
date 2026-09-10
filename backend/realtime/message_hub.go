@@ -81,6 +81,7 @@ func PushToUser(userID uint, event MessageEvent) {
 	hubMu.RLock()
 	conns := userSockets[userID]
 	hubMu.RUnlock()
+	//检查用户是否在线（是否有连接对象）
 	if len(conns) == 0 {
 		return
 	}
