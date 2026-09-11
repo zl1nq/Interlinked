@@ -1,4 +1,4 @@
-<h1 align="center">Interlinked</h1>
+<h1 align="center">interlinked</h1>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Vue-3-4FC08D?logo=vuedotjs&logoColor=white" alt="Vue">
@@ -18,8 +18,12 @@
   <img src="https://img.shields.io/badge/Docker_Compose-基础设施-2496ED?logo=docker&logoColor=white" alt="Docker Compose">
 </p> -->
 
-**Interlinked** 是一个基于 Go + Vue 3 的社交系统，实现了信息流（Feed）、关注关系、互动通知、私信、发现页等核心能力。
+**interlinked** 是一个基于 Go + Vue 3 的社交系统，实现了信息流（Feed）、关注关系、互动通知、私信、发现页等核心能力。
 后端采用 **Outbox 事件表 + RabbitMQ** 的可靠异步分发，以及**推拉混合**的时间线模式；同时引入了 Redis 缓存、布隆过滤器、分布式锁与 Lua 令牌桶限流等工程化设计。
+
+## 项目演示
+
+查看这个文档 : [点我进入->项目演示](./docs/演示.md)
 
 ## 核心功能
 
@@ -79,11 +83,13 @@ interlinked/
 
 ### 1. 启动基础设施
 
+利用 `docker-compose.yml` 快速启动 MySQL、Redis、RabbitMQ 服务。
 ```bash
 docker compose up -d
 ```
-
 将启动 MySQL 8.0（3306）、Redis 7（6379）、RabbitMQ 3（5672，管理界面 15672），并带有健康检查与数据卷持久化。
+
+或者手动启动 MySQL、Redis、RabbitMQ 服务(确保可用)。
 
 ### 2. 配置并启动后端
 
@@ -112,4 +118,4 @@ npm run dev
 
 ### 4. 邮件验证码（可选）
 
-`email.debug: true` 时不连接 SMTP，验证码直接打印到后端控制台，方便本地调试；接入真实邮箱时修改 `email` 配置段即可。
+ `config.yaml` 中 `email.debug: true` 时不连接 SMTP，验证码直接打印到后端控制台，方便本地调试；接入真实邮箱时修改 `email` 配置段即可。
