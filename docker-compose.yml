@@ -53,10 +53,7 @@ services:
       timeout: 5s
       retries: 20
 
-
-
 volumes:
   mysql_data:
   redis_data:
   rabbitmq_data:
-

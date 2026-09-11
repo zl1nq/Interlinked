@@ -67,16 +67,7 @@ backend/uploads/
 *.pid
 *.seed
 
-note
-note/study.md
-note/面经.md
-note/面试题.md
-note/learn.md
-note/*
-pic
-digest
 build
 .zcode
-docs
-nginx
 others
+others/*
