@@ -2,7 +2,7 @@
   <div class="login-container">
     <div class="login-card">
       <h1 class="login-title"><span class="accent">Inter</span><span class="accent-blue">Linked</span></h1>
-      <p class="login-subtitle">千万级推拉混合 Feed 流</p>
+      <!-- <p class="login-subtitle">千万级推拉混合 Feed 流</p> -->
 
       <el-form ref="formRef" :model="form" :rules="rules" label-width="0" size="large">
         <el-form-item prop="username">
