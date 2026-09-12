@@ -77,6 +77,14 @@ func main() {
 	srv := &http.Server{
 		Addr:    addr,
 		Handler: r,
+		// 慢连接（Slowloris、慢 body）会无限占用 goroutine 和 fd，四个超时缺一不可。
+		// ReadTimeout 须覆盖最大上传（video_max_size: 60MB）在弱网下的传输时间；
+		// WriteTimeout 起点是"请求头读完"，须 >= ReadTimeout，否则慢上传会出现
+		// "body 传完但响应被掐"。
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       5 * time.Minute,
+		WriteTimeout:      5 * time.Minute,
+		IdleTimeout:       120 * time.Second, // 回收空闲 keep-alive 连接
 	}
 
 	go func() {
