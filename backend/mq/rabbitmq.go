@@ -188,7 +188,7 @@ func PublishFeed(feedID, authorID uint) error {
 	//根据feedID和authorID生成消息的幂等键，用于消息去重
 	msgKey := messageKey(feedID, authorID)
 	//发布消息到队列
-	err = publishToQueue(publisherQueue.Name, body, amqp.Table{
+	err = publishToQueue(publisherChan, publisherQueue.Name, body, amqp.Table{
 		headerRetryCount: int32(0),
 		headerMessageKey: msgKey,
 	})
@@ -198,7 +198,7 @@ func PublishFeed(feedID, authorID uint) error {
 		_ = resetPublisher()
 		//如果发布者不为空，则重新发布消息
 		if publisherChan != nil {
-			err = publishToQueue(publisherQueue.Name, body, amqp.Table{
+			err = publishToQueue(publisherChan, publisherQueue.Name, body, amqp.Table{
 				headerRetryCount: int32(0),
 				headerMessageKey: msgKey,
 			})
@@ -219,10 +219,11 @@ func PublishFeed(feedID, authorID uint) error {
 	return nil
 }
 
-// publishToQueue 统一发布函数。
+// publishToQueue 统一发布函数，channel 由调用方显式传入：
+// 发布路径传 publisherChan（调用方须持有 publisherMu），消费路径传消费者自身 channel。
 // 所有重试次数、幂等键等元信息通过 headers 透传。
-func publishToQueue(queueName string, body []byte, headers amqp.Table) error {
-	return publisherChan.Publish(
+func publishToQueue(ch *amqp.Channel, queueName string, body []byte, headers amqp.Table) error {
+	return ch.Publish(
 		"",
 		queueName,
 		false,
@@ -323,7 +324,7 @@ func runConsumer(workerID int) error {
 
 		processed, err := processDispatch(workerID, msg, d.Headers) //处理消息
 		if err != nil {
-			handleRetryOrDeadLetter(workerID, d, err) //处理失败消息
+			handleRetryOrDeadLetter(workerID, ch, d, err) //处理失败消息
 			continue
 		}
 		if processed { //确认消息
@@ -431,7 +432,8 @@ func dispatchToFollowers(workerID int, msg FeedMessage) error {
 // handleRetryOrDeadLetter 处理消费失败的消息：
 // - 未超过最大重试：投递到重试队列（延迟后回流主队列）
 // - 超过最大重试：投递到死信队列（DLQ）
-func handleRetryOrDeadLetter(workerID int, d amqp.Delivery, processErr error) {
+// 投递使用消费者自身 channel，不读写发布者全局状态（避免数据竞争）。
+func handleRetryOrDeadLetter(workerID int, ch *amqp.Channel, d amqp.Delivery, processErr error) {
 	//获取配置
 	cfg := config.AppConfig.RabbitMQ
 	maxRetries := cfg.MaxRetries //最大重试次数
@@ -441,14 +443,6 @@ func handleRetryOrDeadLetter(workerID int, d amqp.Delivery, processErr error) {
 
 	retryCount := extractRetryCount(d.Headers) //提取重试次数
 	retryCount++                               //重试次数加1
-
-	if publisherChan == nil { //如果发布者为空，则重新初始化发布者
-		if err := initPublisher(); err != nil { //重新初始化发布者失败，则忽略消息
-			log.Printf("[MQ Worker %d] re-init publisher failed when retry: %v", workerID, err)
-			_ = d.Nack(false, true)
-			return
-		}
-	}
 
 	headers := copyHeaders(d.Headers)             //复制消息头
 	headers[headerRetryCount] = int32(retryCount) //重试次数写入消息头
@@ -464,7 +458,7 @@ func handleRetryOrDeadLetter(workerID int, d amqp.Delivery, processErr error) {
 		log.Printf("[MQ Worker %d] retry message #%d, err=%v", workerID, retryCount, processErr)
 	}
 
-	if err := publishToQueue(routeQueue, d.Body, headers); err != nil { //发布消息到重试队列或死信队列
+	if err := publishToQueue(ch, routeQueue, d.Body, headers); err != nil { //发布消息到重试队列或死信队列
 		log.Printf("[MQ Worker %d] publish retry/dlq failed: %v", workerID, err)
 		_ = d.Nack(false, true)
 		return
