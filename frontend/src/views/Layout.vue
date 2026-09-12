@@ -101,8 +101,8 @@
       </button>
     </nav>
 
-    <!-- 移动端悬浮发布按钮 -->
-    <button class="publish-fab" type="button" aria-label="发布" @click="router.push('/publish')">
+    <!-- 移动端悬浮发布按钮：聊天页隐藏，避免压住输入条的发送按钮 -->
+    <button v-if="!route.path.startsWith('/messages')" class="publish-fab" type="button" aria-label="发布" @click="router.push('/publish')">
       <el-icon :size="24"><Plus /></el-icon>
     </button>
   </div>
