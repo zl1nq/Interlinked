@@ -39,8 +39,15 @@ func SuccessWithMessage(c *gin.Context, message string, data interface{}) {
 	})
 }
 
+// Error 返回业务错误响应，code 同时作为 HTTP 状态码
+// （调用方仅使用 400/404/429/500 等标准状态码）。
+// code 超出合法 HTTP 状态码范围时回退为 500。
 func Error(c *gin.Context, code int, message string) {
-	c.JSON(http.StatusOK, Response{
+	httpStatus := code
+	if httpStatus < 400 || httpStatus > 599 {
+		httpStatus = http.StatusInternalServerError
+	}
+	c.JSON(httpStatus, Response{
 		Code:    code,
 		Message: message,
 	})
