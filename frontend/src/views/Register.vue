@@ -1,71 +1,70 @@
 <template>
-  <div class="login-container">
-    <div class="login-card">
-      <h1 class="login-title"><span class="accent">Inter</span><span class="accent-blue">Linked</span></h1>
-      <p class="login-subtitle">{{ step === 1 ? '创建你的账号' : '验证邮箱' }}</p>
+  <AuthShell>
+    <h1 class="login-title"><span class="accent">Inter</span><span class="accent-blue">Linked</span></h1>
+    <p class="login-subtitle">{{ step === 1 ? '创建你的账号' : '验证邮箱' }}</p>
 
-      <template v-if="step === 1">
-        <el-form ref="formRef" :model="form" :rules="rules" label-position="top" size="large" @submit.prevent="handleRegister">
-          <el-form-item label="用户名" prop="username">
-            <el-input v-model="form.username" placeholder="用户名 (3-50个字符)" prefix-icon="User" />
-          </el-form-item>
-          <el-form-item label="昵称" prop="nickname">
-            <el-input v-model="form.nickname" placeholder="昵称" prefix-icon="UserFilled" />
-          </el-form-item>
-          <el-form-item label="邮箱" prop="email">
-            <el-input v-model="form.email" placeholder="邮箱" prefix-icon="Message" />
-          </el-form-item>
-          <el-form-item label="密码" prop="password">
-            <el-input v-model="form.password" type="password" placeholder="密码 (至少6位)" prefix-icon="Lock" show-password />
-          </el-form-item>
-          <el-form-item label="确认密码" prop="confirmPassword">
-            <el-input v-model="form.confirmPassword" type="password" placeholder="确认密码" prefix-icon="Lock" show-password />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" native-type="submit" class="submit-btn" :loading="loading" style="width: 100%">
-              下一步：验证邮箱
-            </el-button>
-          </el-form-item>
-        </el-form>
-
-        <div class="login-footer">
-          已有账号？ <router-link to="/login" class="link">立即登录</router-link>
-        </div>
-      </template>
-
-      <template v-else>
-        <p class="code-hint">
-          验证码已发送至 <span class="code-email">{{ form.email }}</span>，10 分钟内有效
-        </p>
-
-        <el-form label-position="top" size="large" @submit.prevent="handleConfirm">
-          <el-form-item label="邮箱验证码">
-            <el-input
-              v-model="code"
-              placeholder="6 位数字验证码"
-              prefix-icon="Key"
-              maxlength="6"
-            />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" native-type="submit" class="submit-btn" :loading="confirming" style="width: 100%">
-              完成注册
-            </el-button>
-          </el-form-item>
-        </el-form>
-
-        <div class="step2-actions">
-          <el-button text :disabled="countdown > 0" :loading="resending" @click="resendCode">
-            {{ countdown > 0 ? `${countdown}s 后可重新发送` : '重新发送验证码' }}
+    <template v-if="step === 1">
+      <el-form ref="formRef" :model="form" :rules="rules" label-position="top" size="large" @submit.prevent="handleRegister">
+        <el-form-item label="用户名" prop="username">
+          <el-input v-model="form.username" placeholder="用户名 (3-50个字符)" prefix-icon="User" />
+        </el-form-item>
+        <el-form-item label="昵称" prop="nickname">
+          <el-input v-model="form.nickname" placeholder="昵称" prefix-icon="UserFilled" />
+        </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="form.email" placeholder="邮箱" prefix-icon="Message" />
+        </el-form-item>
+        <el-form-item label="密码" prop="password">
+          <el-input v-model="form.password" type="password" placeholder="密码 (至少6位)" prefix-icon="Lock" show-password />
+        </el-form-item>
+        <el-form-item label="确认密码" prop="confirmPassword">
+          <el-input v-model="form.confirmPassword" type="password" placeholder="确认密码" prefix-icon="Lock" show-password />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" native-type="submit" class="submit-btn" :loading="loading" style="width: 100%">
+            下一步：验证邮箱
           </el-button>
-          <el-button text @click="backToStep1">返回修改资料</el-button>
-        </div>
-      </template>
-    </div>
-  </div>
+        </el-form-item>
+      </el-form>
+
+      <div class="login-footer">
+        已有账号？ <router-link to="/login" class="link">立即登录</router-link>
+      </div>
+    </template>
+
+    <template v-else>
+      <p class="code-hint">
+        验证码已发送至 <span class="code-email">{{ form.email }}</span>，10 分钟内有效
+      </p>
+
+      <el-form label-position="top" size="large" @submit.prevent="handleConfirm">
+        <el-form-item label="邮箱验证码">
+          <el-input
+            v-model="code"
+            placeholder="6 位数字验证码"
+            prefix-icon="Key"
+            maxlength="6"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" native-type="submit" class="submit-btn" :loading="confirming" style="width: 100%">
+            完成注册
+          </el-button>
+        </el-form-item>
+      </el-form>
+
+      <div class="step2-actions">
+        <el-button text :disabled="countdown > 0" :loading="resending" @click="resendCode">
+          {{ countdown > 0 ? `${countdown}s 后可重新发送` : '重新发送验证码' }}
+        </el-button>
+        <el-button text @click="backToStep1">返回修改资料</el-button>
+      </div>
+    </template>
+  </AuthShell>
 </template>
 
 <script setup>
+import AuthShell from '../components/AuthShell.vue'
 import { ref, reactive, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { authApi } from '../api'
@@ -199,94 +198,6 @@ function backToStep1() {
 </script>
 
 <style scoped>
-.login-container {
-  min-height: 100dvh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--surface-base);
-  padding: 24px;
-  position: relative;
-  overflow: hidden;
-}
-
-/* 品牌双色光晕：Inter 红 / Linked 蓝，绕页面中心逆时针公转 */
-.login-container::before,
-.login-container::after {
-  content: '';
-  position: absolute;
-  width: 50vmax;
-  height: 50vmax;
-  border-radius: 50%;
-  filter: blur(28px);
-  pointer-events: none;
-}
-
-.login-container::before {
-  top: 50%;
-  left: 50%;
-  background: radial-gradient(circle, rgba(244, 63, 94, 0.5), transparent 55%);
-  animation: aurora-orbit-a 40s linear infinite;
-}
-
-.login-container::after {
-  top: 50%;
-  left: 50%;
-  background: radial-gradient(circle, rgba(37, 99, 235, 0.48), transparent 55%);
-  animation: aurora-orbit-b 40s linear infinite;
-}
-
-/* 双光晕绕页面中心逆时针公转：rotate 定轨道角度，translateX 定轨道半径；
-   两团相差 180° 相位，公转中各自缓慢胀缩 */
-@keyframes aurora-orbit-a {
-  from {
-    transform: translate(-50%, -50%) rotate(0deg) translateX(30vmin) scale(1);
-  }
-  50% {
-    transform: translate(-50%, -50%) rotate(-180deg) translateX(30vmin) scale(1.15);
-  }
-  to {
-    transform: translate(-50%, -50%) rotate(-360deg) translateX(30vmin) scale(1);
-  }
-}
-
-@keyframes aurora-orbit-b {
-  from {
-    transform: translate(-50%, -50%) rotate(180deg) translateX(30vmin) scale(1.1);
-  }
-  50% {
-    transform: translate(-50%, -50%) rotate(0deg) translateX(30vmin) scale(0.92);
-  }
-  to {
-    transform: translate(-50%, -50%) rotate(-180deg) translateX(30vmin) scale(1.1);
-  }
-}
-
-:global(body.dark) .login-container::before,
-:global(body.dark) .login-container::after {
-  opacity: 0.6;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .login-container::before,
-  .login-container::after {
-    animation: none;
-  }
-}
-
-.login-card {
-  position: relative;
-  z-index: 1;
-  width: 400px;
-  max-width: 100%;
-  padding: 44px 40px 36px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r-xl);
-  box-shadow: var(--shadow-3);
-  animation: page-enter 0.55s var(--ease) both;
-}
-
 .login-title {
   text-align: center;
   font-size: 32px;
