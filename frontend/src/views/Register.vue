@@ -5,24 +5,24 @@
       <p class="login-subtitle">{{ step === 1 ? '创建你的账号' : '验证邮箱' }}</p>
 
       <template v-if="step === 1">
-        <el-form ref="formRef" :model="form" :rules="rules" label-width="0" size="large">
-          <el-form-item prop="username">
+        <el-form ref="formRef" :model="form" :rules="rules" label-position="top" size="large" @submit.prevent="handleRegister">
+          <el-form-item label="用户名" prop="username">
             <el-input v-model="form.username" placeholder="用户名 (3-50个字符)" prefix-icon="User" />
           </el-form-item>
-          <el-form-item prop="nickname">
+          <el-form-item label="昵称" prop="nickname">
             <el-input v-model="form.nickname" placeholder="昵称" prefix-icon="UserFilled" />
           </el-form-item>
-          <el-form-item prop="email">
+          <el-form-item label="邮箱" prop="email">
             <el-input v-model="form.email" placeholder="邮箱" prefix-icon="Message" />
           </el-form-item>
-          <el-form-item prop="password">
+          <el-form-item label="密码" prop="password">
             <el-input v-model="form.password" type="password" placeholder="密码 (至少6位)" prefix-icon="Lock" show-password />
           </el-form-item>
-          <el-form-item prop="confirmPassword">
+          <el-form-item label="确认密码" prop="confirmPassword">
             <el-input v-model="form.confirmPassword" type="password" placeholder="确认密码" prefix-icon="Lock" show-password />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" class="submit-btn" :loading="loading" style="width: 100%" @click="handleRegister">
+            <el-button type="primary" native-type="submit" class="submit-btn" :loading="loading" style="width: 100%">
               下一步：验证邮箱
             </el-button>
           </el-form-item>
@@ -38,8 +38,8 @@
           验证码已发送至 <span class="code-email">{{ form.email }}</span>，10 分钟内有效
         </p>
 
-        <el-form size="large" @keyup.enter="handleConfirm">
-          <el-form-item>
+        <el-form label-position="top" size="large" @submit.prevent="handleConfirm">
+          <el-form-item label="邮箱验证码">
             <el-input
               v-model="code"
               placeholder="6 位数字验证码"
@@ -48,7 +48,7 @@
             />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" class="submit-btn" :loading="confirming" style="width: 100%" @click="handleConfirm">
+            <el-button type="primary" native-type="submit" class="submit-btn" :loading="confirming" style="width: 100%">
               完成注册
             </el-button>
           </el-form-item>
@@ -137,9 +137,10 @@ onUnmounted(() => {
 
 // 第一步：提交资料，服务端暂存并发送验证码（不创建账号）
 async function handleRegister() {
+  if (loading.value) return
+  loading.value = true
   try {
     await formRef.value.validate()
-    loading.value = true
     await authApi.register({
       username: form.username.trim(),
       nickname: form.nickname.trim(),
@@ -158,6 +159,7 @@ async function handleRegister() {
 
 // 第二步：验证码确认建号，成功即自动登录
 async function handleConfirm() {
+  if (confirming.value) return
   if (!/^\d{6}$/.test(code.value)) {
     ElMessage.warning('请输入 6 位数字验证码')
     return

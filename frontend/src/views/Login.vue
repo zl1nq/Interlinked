@@ -4,15 +4,15 @@
       <h1 class="login-title"><span class="accent">Inter</span><span class="accent-blue">Linked</span></h1>
       <!-- <p class="login-subtitle">千万级推拉混合 Feed 流</p> -->
 
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="0" size="large">
-        <el-form-item prop="username">
+      <el-form ref="formRef" :model="form" :rules="rules" label-position="top" size="large" @submit.prevent="handleLogin">
+        <el-form-item label="用户名" prop="username">
           <el-input v-model="form.username" placeholder="用户名" prefix-icon="User" />
         </el-form-item>
-        <el-form-item prop="password">
+        <el-form-item label="密码" prop="password">
           <el-input v-model="form.password" type="password" placeholder="密码" prefix-icon="Lock" show-password />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" class="submit-btn" :loading="loading" style="width: 100%" @click="handleLogin">
+          <el-button type="primary" native-type="submit" class="submit-btn" :loading="loading" style="width: 100%">
             登 录
           </el-button>
         </el-form-item>
@@ -49,9 +49,10 @@ const rules = {
 }
 
 async function handleLogin() {
+  if (loading.value) return
+  loading.value = true
   try {
     await formRef.value.validate()
-    loading.value = true
     await userStore.login(form.username, form.password)
     ElMessage.success('登录成功')
     router.push('/')
@@ -157,7 +158,7 @@ async function handleLogin() {
   font-size: 32px;
   font-weight: 800;
   letter-spacing: -0.03em;
-  margin-bottom: 8px;
+  margin-bottom: 28px;
   color: var(--text-primary);
 }
 
