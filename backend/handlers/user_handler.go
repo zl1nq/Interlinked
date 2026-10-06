@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"errors"
+	"feed/cache"
+	"feed/config"
 	"feed/middleware"
 	"feed/services"
 	"feed/utils"
@@ -19,7 +22,7 @@ func NewUserHandler(userService *services.UserService) *UserHandler {
 	return &UserHandler{userService: userService}
 }
 
-// Register 注册第一步：提交资料并发送邮箱验证码（不建号）
+// Register 提交已验证邮箱的凭证和资料，创建账号并自动登录。
 // POST /api/auth/register
 func (h *UserHandler) Register(c *gin.Context) {
 	var req services.RegisterRequest
@@ -27,16 +30,24 @@ func (h *UserHandler) Register(c *gin.Context) {
 		utils.Error(c, 400, "参数错误: "+err.Error())
 		return
 	}
-
-	if err := h.userService.RegisterInit(&req); err != nil {
-		utils.Error(c, 400, err.Error())
+	user, err := h.userService.Register(&req)
+	if err != nil {
+		if errors.Is(err, cache.ErrRegistrationExpired) {
+			utils.Error(c, 410, err.Error())
+		} else {
+			utils.Error(c, 400, err.Error())
+		}
 		return
 	}
-
-	utils.SuccessWithMessage(c, "验证码已发送，请查收邮箱完成注册", nil)
+	token, err := utils.GenerateToken(user.ID, user.Username, user.TokenVersion)
+	if err != nil {
+		utils.Error(c, 500, "账号已创建，请前往登录")
+		return
+	}
+	utils.Success(c, gin.H{"token": token, "user": user.ToResponse()})
 }
 
-// RegisterConfirm 注册第二步：提交邮箱验证码完成建号，成功后自动登录
+// RegisterConfirm 只验证邮箱，返回短时有效的一次性注册凭证。
 // POST /api/auth/register/confirm
 func (h *UserHandler) RegisterConfirm(c *gin.Context) {
 	var req services.RegisterConfirmRequest
@@ -44,24 +55,12 @@ func (h *UserHandler) RegisterConfirm(c *gin.Context) {
 		utils.Error(c, 400, "参数错误: "+err.Error())
 		return
 	}
-
-	user, err := h.userService.RegisterConfirm(&req)
+	ticket, err := h.userService.RegisterVerify(&req)
 	if err != nil {
 		utils.Error(c, 400, err.Error())
 		return
 	}
-
-	// 自动登录，返回Token
-	token, err := utils.GenerateToken(user.ID, user.Username, user.TokenVersion)
-	if err != nil {
-		utils.Error(c, 500, "生成Token失败")
-		return
-	}
-
-	utils.Success(c, gin.H{
-		"token": token,
-		"user":  user.ToResponse(),
-	})
+	utils.Success(c, gin.H{"registration_token": ticket, "expires_in": config.AppConfig.Email.PendingTTLMin * 60})
 }
 
 // SendEmailCode 发送邮箱验证码（注册/找回密码场景，无需登录）

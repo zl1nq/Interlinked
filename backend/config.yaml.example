@@ -124,5 +124,5 @@ email:
   send_cooldown_sec: 60
   # 同一场景同一邮箱每日发送上限
   daily_limit: 10
-  # 注册待激活资料在 Redis 的暂存时长（分钟）
+  # 邮箱验证后一次性注册凭证的有效期（分钟）
   pending_ttl_min: 30

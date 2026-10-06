@@ -54,7 +54,7 @@ func SetupRouter() *gin.Engine {
 		auth := api.Group("/auth")
 		{
 			auth.POST("/register", middleware.RateLimitByIP("register", rl.RegisterIP.Rate, rl.RegisterIP.Burst), userHandler.Register)         //令牌桶限流
-			auth.POST("/register/confirm", userHandler.RegisterConfirm)                                                                         //注册第二步：验证码确认建号
+			auth.POST("/register/confirm", userHandler.RegisterConfirm)                                                                         //验证邮箱并签发注册凭证
 			auth.POST("/login", middleware.RateLimitByIP("login", rl.LoginIP.Rate, rl.LoginIP.Burst), userHandler.Login)                        //令牌桶限流
 			auth.POST("/email/code", middleware.RateLimitByIP("send_code", rl.SendCodeIP.Rate, rl.SendCodeIP.Burst), userHandler.SendEmailCode) //验证码发送（注册/找回密码）令牌桶限流
 			auth.POST("/password/reset", userHandler.ResetPassword)                                                                             //忘记密码重置

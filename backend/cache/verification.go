@@ -7,7 +7,6 @@ package cache
 
 import (
 	"crypto/rand"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -18,11 +17,11 @@ import (
 )
 
 const (
-	keyVerifyCode    = "vcode:%s:%s"         // 验证码 Hash
-	keyVerifyCodeCD  = "vcode:cd:%s:%s"      // 发送冷却
-	keyVerifyCodeDay = "vcode:dl:%s:%s:%s"   // 每日限额
-	KeyTokenVersion  = "tv:%d"               // token 版本缓存
-	keyPendingReg    = "pending:register:%s" // 注册待激活资料
+	keyVerifyCode    = "vcode:%s:%s"       // 验证码 Hash
+	keyVerifyCodeCD  = "vcode:cd:%s:%s"    // 发送冷却
+	keyVerifyCodeDay = "vcode:dl:%s:%s:%s" // 每日限额
+	KeyTokenVersion  = "tv:%d"             // token 版本缓存
+
 )
 
 // ErrCodeCooldown / ErrCodeDailyLimit / ErrCodeTooManyAttempts 由调用方转换为友好文案。
@@ -133,40 +132,4 @@ func SetTokenVersion(userID uint, version int) {
 // InvalidateTokenVersion 改密/重置后调用，强制下次请求回源 DB 读新版本。
 func InvalidateTokenVersion(userID uint) {
 	_ = RedisClient.Del(Ctx, fmt.Sprintf(KeyTokenVersion, userID)).Err()
-}
-
-// PendingRegistration 注册第一步的待激活资料（密码只存 bcrypt 摘要）。
-type PendingRegistration struct {
-	Username      string `json:"username"`
-	PasswordHash  string `json:"password_hash"`
-	Nickname      string `json:"nickname"`
-	Email         string `json:"email"`
-	EmailVerified bool   `json:"email_verified"`
-}
-
-// SavePendingRegistration 暂存注册资料；同邮箱重复提交覆盖旧资料。
-func SavePendingRegistration(email string, p *PendingRegistration, ttl time.Duration) error {
-	b, err := json.Marshal(p)
-	if err != nil {
-		return err
-	}
-	return RedisClient.Set(Ctx, fmt.Sprintf(keyPendingReg, email), b, ttl).Err()
-}
-
-// GetPendingRegistration 读取待激活资料；不存在返回 redis.Nil。
-func GetPendingRegistration(email string) (*PendingRegistration, error) {
-	raw, err := RedisClient.Get(Ctx, fmt.Sprintf(keyPendingReg, email)).Result()
-	if err != nil {
-		return nil, err
-	}
-	var p PendingRegistration
-	if err := json.Unmarshal([]byte(raw), &p); err != nil {
-		return nil, err
-	}
-	return &p, nil
-}
-
-// DeletePendingRegistration 注册完成或资料作废后清理。
-func DeletePendingRegistration(email string) {
-	_ = RedisClient.Del(Ctx, fmt.Sprintf(keyPendingReg, email)).Err()
 }

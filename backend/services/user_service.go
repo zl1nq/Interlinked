@@ -28,15 +28,16 @@ func NewUserService() *UserService {
 	return &UserService{userRepo: repository.NewUserRepository(models.DB)}
 }
 
-// RegisterRequest 注册第一步请求（提交资料，尚未建号）
+// RegisterRequest 邮箱验证后提交账号资料。
 type RegisterRequest struct {
-	Username string `json:"username" binding:"required,min=3,max=50"`
-	Password string `json:"password" binding:"required,min=6,max=50"`
-	Nickname string `json:"nickname" binding:"required,min=1,max=100"`
-	Email    string `json:"email" binding:"required,email,max=255"`
+	RegistrationToken string `json:"registration_token" binding:"required,len=64"`
+	Username          string `json:"username" binding:"required,min=3,max=50"`
+	Password          string `json:"password" binding:"required,min=6,max=50"`
+	Nickname          string `json:"nickname" binding:"required,min=1,max=100"`
+	Email             string `json:"email" binding:"required,email,max=255"`
 }
 
-// RegisterConfirmRequest 注册第二步请求（提交邮箱验证码，完成建号）
+// RegisterConfirmRequest 验证邮箱并换取一次性注册凭证。
 type RegisterConfirmRequest struct {
 	Email string `json:"email" binding:"required,email"`
 	Code  string `json:"code" binding:"required,len=6"`
@@ -81,82 +82,49 @@ type VisitResponse struct {
 	Visitor   models.UserResponse `json:"visitor"`
 }
 
-// RegisterInit 注册第一步：校验用户名/邮箱唯一性，将资料暂存 Redis（待激活），
-// 并向该邮箱发送验证码。账号在第二步 RegisterConfirm 之前不会落库。
-func (s *UserService) RegisterInit(req *RegisterRequest) error {
-	email := strings.ToLower(strings.TrimSpace(req.Email))
-
-	count, err := s.userRepo.CountByUsername(req.Username)
-	if err != nil {
-		return errors.New("查询用户失败")
+// RegisterVerify 验证邮箱，不创建账号或保存密码。
+func (s *UserService) RegisterVerify(req *RegisterConfirmRequest) (string, error) {
+	email := normalizeEmail(req.Email)
+	if err := s.RegisterInitCheckEmail(email); err != nil {
+		return "", err
 	}
-	if count > 0 {
-		return errors.New("用户名已存在")
-	}
-	emailCount, err := s.userRepo.CountByEmail(email)
-	if err != nil {
-		return errors.New("查询用户失败")
-	}
-	if emailCount > 0 {
-		return errors.New("该邮箱已被注册")
-	}
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return errors.New("密码加密失败")
-	}
-
 	cfg := config.AppConfig.Email
-	if err := cache.SavePendingRegistration(email, &cache.PendingRegistration{
-		Username:     req.Username,
-		PasswordHash: string(hashedPassword),
-		Nickname:     req.Nickname,
-		Email:        email,
-	}, time.Duration(cfg.PendingTTLMin)*time.Minute); err != nil {
-		return errors.New("注册请求保存失败，请稍后再试")
-	}
-
-	if err := NewVerificationService().SendCode(EmailSceneRegister, email); err != nil {
-		return err
-	}
-	return nil
+	return cache.VerifyRegistrationEmail(email, req.Code, cfg.CodeMaxAttempts, time.Duration(cfg.PendingTTLMin)*time.Minute)
 }
 
-// RegisterConfirm 注册第二步：校验邮箱验证码，正式创建账号（邮箱已验证）并自动登录。
-func (s *UserService) RegisterConfirm(req *RegisterConfirmRequest) (*models.User, error) {
-	email := strings.ToLower(strings.TrimSpace(req.Email))
-
-	if err := NewVerificationService().VerifyCode(EmailSceneRegister, email, req.Code); err != nil {
+// Register 在创建账号前校验并原子消费与邮箱绑定的注册凭证。
+func (s *UserService) Register(req *RegisterRequest) (*models.User, error) {
+	email := normalizeEmail(req.Email)
+	if err := cache.CheckRegistrationTicket(req.RegistrationToken, email); err != nil {
 		return nil, err
 	}
-
-	pending, err := cache.GetPendingRegistration(email)
+	username, nickname := strings.TrimSpace(req.Username), strings.TrimSpace(req.Nickname)
+	if len([]rune(username)) < 3 || nickname == "" {
+		return nil, errors.New("请填写有效的用户名和昵称")
+	}
+	count, err := s.userRepo.CountByUsername(username)
 	if err != nil {
-		return nil, errors.New("注册请求不存在或已过期，请重新注册")
+		return nil, errors.New("查询用户失败")
 	}
-
-	// 从暂存到确认存在时间窗，落库前再次查重
-	if count, err := s.userRepo.CountByUsername(pending.Username); err == nil && count > 0 {
-		cache.DeletePendingRegistration(email)
-		return nil, errors.New("用户名已被占用，请重新注册")
+	if count > 0 {
+		return nil, errors.New("用户名已存在")
 	}
-	if count, err := s.userRepo.CountByEmail(email); err == nil && count > 0 {
-		cache.DeletePendingRegistration(email)
-		return nil, errors.New("该邮箱已被注册")
+	if err := s.RegisterInitCheckEmail(email); err != nil {
+		return nil, err
 	}
-
-	user := &models.User{
-		Username:      pending.Username,
-		Password:      pending.PasswordHash,
-		Nickname:      pending.Nickname,
-		Email:         &email,
-		EmailVerified: true,
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, errors.New("密码加密失败")
 	}
+	if err := cache.ConsumeRegistrationTicket(req.RegistrationToken, email); err != nil {
+		return nil, err
+	}
+	user := &models.User{Username: username, Nickname: nickname, Password: string(hashed), Email: &email, EmailVerified: true}
 	if err := s.userRepo.Create(user); err != nil {
-		return nil, errors.New("注册失败")
+		// 凭证已消费，失败时要求重新验证，不能恢复凭证造成重放。
+		return nil, cache.ErrRegistrationExpired
 	}
 	cache.AddUserID(user.ID)
-	cache.DeletePendingRegistration(email)
 	return user, nil
 }
 
@@ -203,7 +171,7 @@ type ChangeEmailRequest struct {
 	Password string `json:"password" binding:"omitempty,min=1,max=50"`
 }
 
-// RegisterInitCheckEmail 重发注册验证码前的邮箱占用预检。
+// RegisterInitCheckEmail 发送、验证及完成注册前的邮箱占用预检。
 func (s *UserService) RegisterInitCheckEmail(email string) error {
 	email = strings.ToLower(strings.TrimSpace(email))
 	count, err := s.userRepo.CountByEmail(email)
@@ -216,7 +184,7 @@ func (s *UserService) RegisterInitCheckEmail(email string) error {
 	return nil
 }
 
-// SendRegisterCode 发送注册验证码（重发场景，资料已在第一步暂存）。
+// SendRegisterCode 发送或重发注册邮箱验证码。
 func (s *UserService) SendRegisterCode(email string) error {
 	return NewVerificationService().SendCode(EmailSceneRegister, email)
 }
@@ -359,16 +327,13 @@ func (s *UserService) ChangeEmail(userID uint, req *ChangeEmailRequest) error {
 	return nil
 }
 
-// checkEmailAvailable 校验邮箱未被其他账号占用（已注册或待激活注册均算占用）。
+// checkEmailAvailable 校验邮箱未被其他账号占用。
 func (s *UserService) checkEmailAvailable(email string) error {
 	count, err := s.userRepo.CountByEmail(email)
 	if err != nil {
 		return errors.New("查询用户失败")
 	}
 	if count > 0 {
-		return errors.New("该邮箱已被其他账号绑定")
-	}
-	if pending, err := cache.GetPendingRegistration(email); err == nil && pending != nil {
 		return errors.New("该邮箱已被其他账号绑定")
 	}
 	return nil

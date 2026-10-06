@@ -7,11 +7,11 @@ import request from './request'
 // ==================== 认证相关 ====================
 export const authApi = {
     register(data) {
-        // 两段式注册第一步：暂存资料并发送邮箱验证码，不创建账号
+        // 提交 registration_token、已验证邮箱及账号资料，成功返回 token + user
         return request.post('/auth/register', data)
     },
     confirmRegister(data) {
-        // 两段式注册第二步：{ email, code }，成功返回与登录一致的 token + user
+        // 验证邮箱：{ email, code }，返回 registration_token + expires_in
         return request.post('/auth/register/confirm', data)
     },
     sendEmailCode(data) {
