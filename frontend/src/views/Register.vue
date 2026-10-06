@@ -8,13 +8,14 @@
         <el-input v-model="form.email" :disabled="busy" placeholder="请输入邮箱" prefix-icon="Message" autocomplete="email" @input="resetCode" />
       </el-form-item>
       <el-form-item label="邮箱验证码">
-        <el-input ref="codeRef" v-model="code" :disabled="busy" placeholder="6 位数字验证码" prefix-icon="Key" maxlength="6" inputmode="numeric" autocomplete="one-time-code" />
+        <el-input ref="codeRef" v-model="code" :disabled="busy" placeholder="6位验证码" prefix-icon="Key" maxlength="6" inputmode="numeric" autocomplete="one-time-code" class="code-input">
+          <template #suffix>
+            <el-button text native-type="button" class="send-code-btn" :disabled="busy || countdown > 0" :loading="sending" @click="sendCode">
+              {{ countdown > 0 ? countdown + 's 后重发' : (sentEmail ? '重新发送' : '获取验证码') }}
+            </el-button>
+          </template>
+        </el-input>
       </el-form-item>
-      <div class="step2-actions">
-        <el-button text :disabled="busy || countdown > 0" :loading="sending" @click="sendCode">
-          {{ countdown > 0 ? countdown + 's 后可重新发送' : (sentEmail ? '重新发送验证码' : '获取验证码') }}
-        </el-button>
-      </div>
       <p v-if="sentEmail" class="code-hint">验证码已发送，请查收邮箱。</p>
       <el-form-item>
         <el-button type="primary" native-type="submit" class="submit-btn" :disabled="sending" :loading="verifying" style="width: 100%">验证邮箱，下一步</el-button>
@@ -212,6 +213,19 @@ async function handleRegister() {
   color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.7;
+}
+
+.code-input :deep(.el-input__wrapper) {
+  padding-right: 4px;
+}
+
+.send-code-btn {
+  min-width: 88px;
+  height: 28px;
+  padding: 0 8px;
+  border-left: 1px solid var(--border-subtle);
+  border-radius: 0;
+  font-size: 13px;
 }
 
 .code-email {
